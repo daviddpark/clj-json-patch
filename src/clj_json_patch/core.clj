@@ -3,6 +3,26 @@
   (:use ;[clj-diff.core :only [clj-diff]]
         [clojure.walk :only [walk]]))
 
+(defn apply-op [obj op]
+  ;(println "(apply-op" op ")")
+  (cond (vector? obj)
+        (cond (= "move" (get op "op"))
+              (let [from (Integer/parseInt (second (re-find #"/(\d+)" (get op "from"))))
+                    to (Integer/parseInt (second (re-find #"/(\d+)" (get op "path"))))
+                    val (get obj from)]
+                (vec (concat (subvec obj 0 from) (subvec obj (inc from) (inc to))
+                             [(get obj from)] (subvec obj (inc to))))))))
+
+(defn patch
+  "Applies a JSON patch document to JSON object"
+  [obj patches]
+  (loop [patches patches
+         result obj]
+    (if (empty? patches)
+      result
+      (recur (rest patches)
+             (apply-op result (first patches))))))
+
 (defn gen-op [t]
   [(let [result {"op" (first t) "path" (second t)}]
     (if (> (count t) 2)
@@ -12,15 +32,35 @@
 (defn diff-vecs [obj1 obj2 prefix]
   (loop [v1 obj1
          v2 obj2
-         i 0]
+         i 0
+         ops []]
     ;(println "diff-vecs" obj1 obj2 prefix)
-    (cond (= v1 (rest v2))
-          (gen-op ["add" (str prefix i) (first v2)])
+    ;(println "ops:" ops "patched:" (patch v1 ops))
+    ;(println v2 "=" (patch v1 ops) "?" (= v2 (patch v1 ops)))
+    (cond (and (> (count ops) 0)
+               (= v2 (patch v1 ops)))
+          ops
+          (= (set v1) (set v2))
+          (do ;(println "count:" (count v1) "i:" i "ops:" ops)
+              ;(println "v1[" i "]" (get v1 i) "v2[" i "]" (get v2 i))
+              (cond (= i (count v1))
+                    ops
+                    (= (get v1 i) (get v2 i))
+                    (recur v1 v2 (inc i) ops)
+                    (not= (get v1 i) (get v2 i))
+                    (let [moved-idx (first (filter (complement nil?) (map-indexed #(if (= (get v1 i) %2) %1) v2)))]
+                      (recur v1 v2 (inc i)
+                             (conj ops {"op" "move" "from" (str prefix i) "path" (str prefix moved-idx)})))))
+          (= v1 (rest v2))
+          (conj ops (gen-op ["add" (str prefix i) (first v2)]))
           (= (rest v1) v2)
-          (gen-op ["remove" (str prefix i)])
+          (conj ops (gen-op ["remove" (str prefix i)]))
+          (not= (first v1) (first v2))
+          (recur (rest v1) (rest v2) (inc i)
+                 (conj ops (gen-op ["replace" (str prefix i) (first v2)])))
           (and (= (first v1) (first v2))
                (not= (rest v1) (rest v2)))
-          (recur (rest v1) (rest v2) (inc i)))))
+          (recur (rest v1) (rest v2) (inc i) ops))))
 
 (defn get-value-path
   "Traverses obj, looking for a value that matches val, returns path to value."
@@ -42,6 +82,7 @@
 (defn get-patch-value
   "Given the patch path, find the associated value."
   [obj path]
+  ;(println "(get-patch-value" obj path ")")
   (if-let [match (re-find #"^/([^/]+)(.*)" path)]
     (let [seg (second match)
           segs (nth match 2)
@@ -63,42 +104,41 @@
     (if (or (empty? adds) (empty? removes))
       p
       (let [f-add (first adds)
-            f-path (get "path" f-add)
-            f-val (get "value" f-add)
-            ;p-no-fval (filter #(let  (get-patch-value obj1 f-path)))
-            ]
-        
-        (loop [])))))
+            f-path (get f-add "path")
+            f-val (get f-add "value")
+            moved (filter #(= f-val (get-patch-value obj1 (get % "path"))) removes)]
+        (if-let [fmoved (first moved)]
+          (recur (rest adds) (filter #(not= fmoved %) removes)
+                 (conj (filter #(not= f-add %) (filter #(not= fmoved %) patch))
+                       {"op" "move" "from" (get fmoved "path") "path" f-path}))
+          (recur (rest adds) removes p))))))
 
 (defn diff
   "Prepares a JSON patch document representing the difference
    between two JSON objects."
   ([obj1 obj2] (diff obj1 obj2 "/"))
   ([obj1 obj2 prefix]
-     (cond (and (vector? obj1) (vector? obj2))
-           (diff-vecs obj1 obj2 prefix)
-           (and (map? obj1) (map? obj2))
-           (vec
-            (flatten
-             (remove nil?
-                     (concat
-                      (for [[k v1] obj1]
-                        (let [v2 (get obj2 k)]
-                          (cond (and (vector? v1) (vector? v2))
-                                (diff v1 v2 (str prefix k "/"))
-                                (not (contains? obj2 k))
-                                (gen-op ["remove" (str prefix k)])
-                                (and (map? v1) (map? v2))
-                                (diff v1 v2 (str prefix k "/"))
-                                (and (contains? obj2 k)
-                                     (not= v1 v2)
-                                     (= (type v1) (type v2)))
-                                (gen-op ["replace" (str prefix k) v2]))))
-                      (for [[k v2] obj2]
-                        (let [v1 (get obj1 k)]
-                          (cond (not (contains? obj1 k))
-                                (gen-op ["add" (str prefix k) v2])))))))))))
-
-(defn patch
-  "Applies a JSON patch document to JSON object"
-  [obj patch])
+     (transform-moves obj1 obj2
+                      (cond (and (vector? obj1) (vector? obj2))
+                            (diff-vecs obj1 obj2 prefix)
+                            (and (map? obj1) (map? obj2))
+                            (vec
+                             (flatten
+                              (remove nil?
+                                      (concat
+                                       (for [[k v1] obj1]
+                                         (let [v2 (get obj2 k)]
+                                           (cond (and (vector? v1) (vector? v2))
+                                                 (diff v1 v2 (str prefix k "/"))
+                                                 (not (contains? obj2 k))
+                                                 (gen-op ["remove" (str prefix k)])
+                                                 (and (map? v1) (map? v2))
+                                                 (diff v1 v2 (str prefix k "/"))
+                                                 (and (contains? obj2 k)
+                                                      (not= v1 v2)
+                                                      (= (type v1) (type v2)))
+                                                 (gen-op ["replace" (str prefix k) v2]))))
+                                       (for [[k v2] obj2]
+                                         (let [v1 (get obj1 k)]
+                                           (cond (not (contains? obj1 k))
+                                                 (gen-op ["add" (str prefix k) v2]))))))))))))

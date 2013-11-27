@@ -36,9 +36,6 @@
          (fact "get path from map of map with array"
                (get-value-path obj6 "deeper!") => "/foo/bar/1")))
 
-
-
-
 (facts "JSON diff"
        (let [obj1 {"foo" "bar"}
              obj2 {"foo" "bar"}
@@ -98,6 +95,30 @@
                    "qux" {"corge" "grault"
                           "thud" "fred"}}
              expected [{"op" "move" "from" "/foo/waldo" "path" "/qux/thud"}]]
-         (future-fact "Moving a Value"
+         (fact "Moving a Value"
                (diff obj1 obj2) => expected))
-)
+       (let [obj1 {"foo" ["all" "grass" "cows" "eat"]}
+             obj2 {"foo" ["all" "cows" "eat" "grass"]}
+             expected [{"op" "move" "from" "/foo/1" "path" "/foo/3"}]]
+         (fact "Moving an Array Element"
+               (diff obj1 obj2) => expected)))
+
+(facts "diff-vecs"
+       (let [v1 ["all" "grass" "cows" "eat"]
+             v2 ["all" "cows" "eat" "grass"]]
+         (fact "two vectors with same elements in different order are not the same"
+               (count (diff-vecs v1 v2 "/")) => 1
+               (diff-vecs v1 v2 "/") => [{"from" "/1", "op" "move", "path" "/3"}])))
+
+(facts "apply-op"
+       (let [v ["all" "grass" "cows" "eat" "slowly"]
+             patch {"from" "/1", "op" "move", "path" "/3"}
+             expected ["all" "cows" "eat" "grass" "slowly"]]
+         (apply-op v patch) => expected))
+
+(facts "applying patch"
+       (let [v ["all" "grass" "cows" "eat" "slowly"]
+             p [{"from" "/1", "op" "move", "path" "/3"}]
+             expected ["all" "cows" "eat" "grass" "slowly"]]
+         (patch v p) => expected))
+
