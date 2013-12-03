@@ -1,7 +1,14 @@
 (ns clj-json-patch.core-test
   (:require [clojure.test :refer :all]
             [clj-json-patch.core :refer :all])
-  (:use [midje.sweet]))
+  (:use [midje.sweet]
+        [midje.util :only [testable-privates]]))
+
+(testable-privates clj-json-patch.core
+                   apply-patch
+                   diff-vecs
+                   get-patch-value
+                   get-value-path)
 
 (let [obj1 {"foo" "bar"}
              obj2 {"foo" {"bar" "baz"}}
@@ -105,6 +112,12 @@
                           "baz" "boo"}}
              obj2 {"foo" {"baz" "boo"}}
              patches [{"op" "remove" "path" "/foo/bar"}]]
+         (fact "Removing a Nested Object Member"
+               (diff obj1 obj2) => patches))
+       (let [obj1 {"foo" {"baz" "boo"}}
+             obj2 {"child" {"grandchild" {}}
+                   "foo" {"baz" "boo"}}
+             patches [{"op" "add" "path" "/child" "value" {"grandchild" {}}}]]
          (fact "Adding a Nested Object Member"
                (diff obj1 obj2) => patches))
        (let [obj1 {"foo" {"bar" "baz"
@@ -171,8 +184,23 @@
                           "baz" "boo"}}
              obj2 {"foo" {"baz" "boo"}}
              patches [{"op" "remove" "path" "/foo/bar"}]]
+         (fact "Removing a Nested Object Member"
+               (patch obj1 patches) => obj2))
+       (let [obj1 {"foo" {"baz" "boo"}}
+             obj2 {"child" {"grandchild" {}}
+                   "foo" {"baz" "boo"}}
+             patches [{"op" "add" "path" "/child" "value" {"grandchild" {}}}]]
          (fact "Adding a Nested Object Member"
                (patch obj1 patches) => obj2))
+       (let [obj1 {"foo" "bar"}
+             obj2 {"foo" "bar" "baz" "qux"}
+             patches [{"op" "add" "path" "/baz" "value" "qux" "xyz" 123}]]
+         (fact "Ignoring unrecognized elements"
+               (patch obj1 patches) => obj2))
+       (let [obj1 {"foo" "bar"}
+             patches [{"op" "add" "path" "/baz/bat" "value" "qux"}]]
+         (fact "Adding to a nonexistent target"
+               (patch obj1 patches) => (throws Exception "Unable to set value at '/baz/bat'. Consider adding a more explicit data structure as a child of an existing object.")))
        (let [obj1 {"foo" {"bar" "baz"
                           "waldo" "fred"}
                    "qux" {"corge" "grault"}}
@@ -217,7 +245,7 @@
        (let [obj1 {"foo" ["bar" "baz"]}
              patches [{"op" "add" "path" "/foo/3" "value" "qux"}]]
          (fact "Adding a second Array Element"
-               (patch obj1 patches) => (throws Exception "Unable to set value at 3")))
+               (patch obj1 patches) => (throws Exception "Unable to set value at '/foo/3'.")))
        (let [obj1 {"foo" "bar" "boo" "qux"}
              patches [{"op" "replace" "path" "/baz" "value" "boo"}]]
          (fact "Replacing a Value that doesn't exist"

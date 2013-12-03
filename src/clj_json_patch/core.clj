@@ -1,10 +1,8 @@
-(ns clj-json-patch.core
-  (:require [cheshire.core :as json])
-  (:use [clojure.walk :only [walk]]))
+(ns clj-json-patch.core)
 
 (declare remove-patch-value)
 
-(defn get-patch-value
+(defn- get-patch-value
   "Given the patch path, find the associated value."
   [obj path]
   ;(println "(get-patch-value" obj path ")")
@@ -19,15 +17,22 @@
         (get-patch-value val segs)
         val))))
 
-(defn set-patch-value
+(defn- set-patch-value
+  "Set val at path in obj"
   [obj path val]
   (if-let [segs (re-seq #"/([^/]+)" path)]
     (if (> (count segs) 1)
-      (let [parent-match (re-find #"(.*)(/[^/+])" path)
-            parent-path (apply str (map first (take (dec (count segs)) segs)))
-            parent (get-patch-value obj parent-path)]
-        (set-patch-value obj parent-path
-                         (set-patch-value parent (first (last segs)) val)))
+      (if-let [path-exists (try (get-patch-value obj path)
+                                (catch Exception e
+                                  (throw (Exception. (str "Unable to set value at '" path "'.")))))]
+        (let [parent-match (re-find #"(.*)(/[^/+])" path)
+              parent-path (apply str (map first (take (dec (count segs)) segs)))
+              parent (get-patch-value obj parent-path)]
+          (set-patch-value obj parent-path
+                           (set-patch-value parent (first (last segs)) val)))
+        (throw (Exception. (str "Unable to set value at '" path
+                                "'. Consider adding a more explicit data "
+                                "structure as a child of an existing object."))))
       (cond (map? obj)
             (assoc obj (second (first segs)) val)
             (vector? obj)
@@ -40,9 +45,9 @@
                   (throw (Exception. (str "Unable to set value at " idx))))))))
     (throw (Exception. "Patch path must start with '/'"))))
 
-(defn move-patch-value
+(defn- move-patch-value
+  "Move value located at 'from' to the 'path'."
   [obj from path]
-  ;(println "(move-patch-value" obj from path ")")
   (if-let [to-segs (re-seq #"/([^/]+)" path)]
     (if-let [from-segs (re-seq #"/([^/]+)" from)]
       (if-let [val (get-patch-value obj from)]
@@ -78,7 +83,8 @@
       (throw (Exception. "Patch 'from' value must start with '/'")))
     (throw (Exception. "Patch 'path' value must start with '/'"))))
 
-(defn remove-patch-value
+(defn- remove-patch-value
+  "Remove the value at 'path' from obj."
   [obj path]
   (try
     (if-let [val (get-patch-value obj path)]
@@ -97,7 +103,8 @@
     (catch Exception e
       (throw (Exception. (str "There is no value at '" path "' to remove."))))))
 
-(defn replace-patch-value
+(defn- replace-patch-value
+  "Replace the value found at 'path' with that bound to 'val'."
   [obj path val]
   (if-let [value (get-patch-value obj path)]
     (if-let [segs (re-seq #"/([^/]+)" path)]
@@ -116,7 +123,8 @@
       (throw (Exception. "Patch path must start with '/'")))
     (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
 
-(defn test-patch-value
+(defn- test-patch-value
+  "Ensure that the value located at 'path' in obj is equal to 'val'."
   [obj path val]
   (try
     (let [value (get-patch-value obj path)]
@@ -126,9 +134,8 @@
     (catch Exception e
       (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'."))))))
 
-(defn apply-patch [obj patch]
-  ;(println "")
-  ;(println "(apply-patch" patch ")")
+(defn- apply-patch [obj patch]
+  "Apply the patch operation in patch to obj, returning the new obj representation."
   (let [op (get patch "op")
         path (get patch "path")
         from (get patch "from")
@@ -145,7 +152,7 @@
           (test-patch-value obj path value))))
 
 (defn patch
-  "Applies a JSON patch document to JSON object"
+  "Applies a JSON patch document (multiple patches) to JSON object."
   [obj patches]
   
   (comment (loop [patches patches
@@ -156,17 +163,17 @@
              (apply-patch result (first patches))))))
   (reduce #(apply-patch %1 %2) obj patches))
 
-(defn gen-op [t]
+(defn- gen-op [t]
   [(let [result {"op" (first t) "path" (second t)}]
     (if (> (count t) 2)
       (assoc result "value" (nth t 2))
       result))] )
 
-(defn clean-prefix
+(defn- clean-prefix
   [prefix path]
   (clojure.string/replace path (re-pattern prefix) "/"))
 
-(defn sanitize-prefix-in-patch
+(defn- sanitize-prefix-in-patch
   [prefix patch]
   (let [path (get patch "path")
         cleaned-path (assoc patch "path" (clean-prefix prefix path))]
@@ -174,27 +181,23 @@
       (assoc cleaned-path "from" (clean-prefix prefix from))
       cleaned-path)))
 
-(defn diff-vecs [obj1 obj2 prefix]
+(defn- diff-vecs [obj1 obj2 prefix]
   (loop [v1 obj1
          v2 obj2
          i 0
          ops []]
-    ;(println "(diff-vecs" obj1 obj2 prefix ")")
-    ;(println "ops:" ops "patched:" (patch v1 (map (partial sanitize-prefix-in-patch prefix) ops)))
     (cond (and (> (count ops) 0)
                (= v2 (patch v1 (map (partial sanitize-prefix-in-patch prefix) ops))))
           ops
           (= (set v1) (set v2))
-          (do ;(println "count:" (count v1) "i:" i "ops:" ops)
-              ;(println "v1[" i "]" (get v1 i) "v2[" i "]" (get v2 i))
-              (cond (= i (count v1))
-                    ops
-                    (= (get v1 i) (get v2 i))
-                    (recur v1 v2 (inc i) ops)
-                    (not= (get v1 i) (get v2 i))
-                    (let [moved-idx (first (filter (complement nil?) (map-indexed #(if (= (get v1 i) %2) %1) v2)))]
-                      (recur v1 v2 (inc i)
-                             (conj ops {"op" "move" "from" (str prefix i) "path" (str prefix moved-idx)})))))
+          (cond (= i (count v1))
+                ops
+                (= (get v1 i) (get v2 i))
+                (recur v1 v2 (inc i) ops)
+                (not= (get v1 i) (get v2 i))
+                (let [moved-idx (first (filter (complement nil?) (map-indexed #(if (= (get v1 i) %2) %1) v2)))]
+                  (recur v1 v2 (inc i)
+                         (conj ops {"op" "move" "from" (str prefix i) "path" (str prefix moved-idx)}))))
           (= v1 (rest v2))
           (conj ops (gen-op ["add" (str prefix i) (first v2)]))
           (= (rest v1) v2)
@@ -206,7 +209,7 @@
                (not= (rest v1) (rest v2)))
           (recur (rest v1) (rest v2) (inc i) ops))))
 
-(defn get-value-path
+(defn- get-value-path
   "Traverses obj, looking for a value that matches val, returns path to value."
   ([obj val] (get-value-path obj val "/"))
   ([obj val prefix]
@@ -223,7 +226,7 @@
                (str prefix idx)
                (map-indexed #(get-value-path %2 val (str prefix %1 "/")) obj)))))
 
-(defn transform-moves
+(defn- transform-moves
   "Attempt to reconcile add/remove patch entries
    to a single move entry"
   [obj1 obj2 patch]
