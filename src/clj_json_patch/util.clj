@@ -187,7 +187,7 @@
   (try
     (let [value (get-patch-value obj path)]
       (if (not= val value)
-        (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'.")))
+        (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'. The value found is: " value)))
         obj))
     (catch Exception e
       (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'."))))))
