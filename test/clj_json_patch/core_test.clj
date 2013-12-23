@@ -8,7 +8,8 @@
                    apply-patch
                    diff-vecs
                    get-patch-value
-                   get-value-path)
+                   get-value-path
+                   path-is-array-idx)
 
 (let [obj1 {"foo" "bar"}
              obj2 {"foo" {"bar" "baz"}}
@@ -133,6 +134,12 @@
              obj2 {"foo" ["all" "cows" "eat" "grass"]}
              patches [{"op" "move" "from" "/foo/1" "path" "/foo/3"}]]
          (fact "Moving an Array Element"
+               (diff obj1 obj2) => patches))
+       (let [obj1 {"foo" "bar"}
+             obj2 {"foo" ["all" "cows" "eat" "grass"]}
+             patches [{"op" "replace" "path" "/foo"
+                       "value" ["all" "cows" "eat" "grass"]}]]
+         (fact "Replace a value with an Array Element"
                (diff obj1 obj2) => patches)))
 
 (facts "Happy path JSON patch"
@@ -192,6 +199,16 @@
              patches [{"op" "add" "path" "/child" "value" {"grandchild" {}}}]]
          (fact "Adding a Nested Object Member"
                (patch obj1 patches) => obj2))
+       (let [obj1 {"foo" ["baz" "boo"]}
+             obj2 {"foo" ["baz" "boo" "added"]}
+             patches [{"op" "add" "path" "/foo/2" "value" "added"}]]
+         (fact "Adding to a nested array"
+               (patch obj1 patches) => obj2))
+       (let [obj1 {"foo" ["baz" "boo"]}
+             obj2 {"foo" ["baz" "boo" "added"]}
+             patches [{"op" "add" "path" "/foo/-" "value" "added"}]]
+         (fact "Adding to the end of a nested array"
+               (patch obj1 patches) => obj2))
        (let [obj1 {"foo" "bar"}
              obj2 {"foo" "bar" "baz" "qux"}
              patches [{"op" "add" "path" "/baz" "value" "qux" "xyz" 123}]]
@@ -245,12 +262,12 @@
        (let [obj1 {"foo" ["bar" "baz"]}
              patches [{"op" "add" "path" "/foo/3" "value" "qux"}]]
          (fact "Adding a second Array Element"
-               (patch obj1 patches) => (throws Exception "Unable to set value at '/foo/3'.")))
+               (patch obj1 patches) => (throws Exception "Unable to set value at 3.")))
        (let [obj1 {"foo" "bar" "boo" "qux"}
              patches [{"op" "replace" "path" "/baz" "value" "boo"}]]
          (fact "Replacing a Value that doesn't exist"
                (patch obj1 patches) => (throws Exception "Can't replace a value that does not exist at '/baz'.")))
-       (let [obj1 {"foo" {"beer" "kill me"
+       (let [obj1 {"foo" {"beer" "booze"
                           "baz" "boo"}}
              patches [{"op" "remove" "path" "/foo/bar"}]]
          (fact "Removing a nested path that does not exist"
@@ -264,4 +281,8 @@
        (let [obj1 {"foo" ["all" "grass" "cows" "eat"]}
              patches [{"op" "move" "from" "/foo/1" "path" "/foo/-1"}]]
          (fact "Moving an Array Element to an illegal value"
-               (patch obj1 patches) => (throws Exception "Move attempted on value that does not exist at '/-1'."))))
+               (patch obj1 patches) => (throws Exception "Move attempted on value that does not exist at '/-1'.")))
+       (let [obj1 {"foo" ["all" "grass" "cows" "eat"]}
+             patches [{"op" "add" "path" "/foo/two"}]]
+         (fact "Adding an Array Element to an non-number index"
+               (patch obj1 patches) => (throws Exception "Unable to determine array index from 'two'."))))
