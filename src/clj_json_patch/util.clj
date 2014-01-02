@@ -1,11 +1,11 @@
-(ns clj-json-patch.util)
+(ns clj-json-patch.util
+  (:require [cheshire.core :as json]))
 
 (declare remove-patch-value)
 
 (defn get-patch-value
   "Given the patch path, find the associated value."
   [obj path]
-  ;(println "(get-patch-value" obj path ")")
   (if-let [match (re-find #"^/([^/]+)(.*)" path)]
     (let [seg (second match)
           segs (nth match 2)
@@ -187,10 +187,17 @@
   (try
     (let [value (get-patch-value obj path)]
       (if (not= val value)
-        (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'. The value found is: " value)))
-        obj))
+        (throw (Exception.
+                (str "The value is: "
+                     (json/generate-string value))))
+        obj)
+      )
     (catch Exception e
-      (throw (Exception. (str "The test failed. '" val "' is not found at '" path "'."))))))
+      (throw (Exception.
+              (str "The test failed. "
+                   (json/generate-string val)
+                   " is not found at " path ". "
+                   (.getMessage e)))))))
 
 (defn apply-patch [obj patch]
   "Apply the patch operation in patch to obj, returning the new obj representation."

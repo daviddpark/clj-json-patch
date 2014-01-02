@@ -246,11 +246,11 @@
        (let [obj1 {"foo" "bar"}
              patches [{"op" "test" "path" "/baz" "value" "qux"}]]
          (fact "Testing an Object Member"
-               (patch obj1 patches) => (throws Exception "The test failed. 'qux' is not found at '/baz'.")))
+               (patch obj1 patches) => (throws Exception "The test failed. \"qux\" is not found at /baz. The value is: null")))
        (let [obj1 ["foo" "bar"]
              patches [{"op" "test" "path" "/4" "value" "qux"}]]
          (fact "Testing an Array Member"
-               (patch obj1 patches) => (throws Exception "The test failed. 'qux' is not found at '/4'.")))
+               (patch obj1 patches) => (throws Exception "The test failed. \"qux\" is not found at /4. ")))
        (let [obj1 {"foo" "bar"}
              patches [{"op" "remove" "path" "/baz" "value" "qux"}]]
          (fact "Removing an Object Member"
