@@ -2,6 +2,37 @@
   (:require [cheshire.core :as json]))
 
 (declare remove-patch-value)
+(declare transform-moves)
+(declare diff-vecs)
+(declare gen-op)
+
+(defn diff*
+  "Prepares a JSON patch document representing the difference
+   between two JSON objects."
+  [obj1 obj2 prefix]
+  (transform-moves obj1 obj2
+                   (cond (and (vector? obj1) (vector? obj2))
+                         (diff-vecs obj1 obj2 prefix)
+                         (and (map? obj1) (map? obj2))
+                         (vec
+                          (flatten
+                           (remove nil?
+                                   (concat
+                                    (for [[k v1] obj1]
+                                      (let [v2 (get obj2 k)]
+                                        (cond (and (vector? v1) (vector? v2))
+                                              (diff* v1 v2 (str prefix k "/"))
+                                              (not (contains? obj2 k))
+                                              (gen-op ["remove" (str prefix k)])
+                                              (and (map? v1) (map? v2))
+                                              (diff* v1 v2 (str prefix k "/"))
+                                              (and (contains? obj2 k)
+                                                   (not= v1 v2))
+                                              (gen-op ["replace" (str prefix k) v2]))))
+                                    (for [[k v2] obj2]
+                                      (let [v1 (get obj1 k)]
+                                        (cond (not (contains? obj1 k))
+                                              (gen-op ["add" (str prefix k) v2])))))))))))
 
 (defn get-patch-value
   "Given the patch path, find the associated value."
@@ -169,7 +200,7 @@
       (if (> (count segs) 1)
         (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
               parent (get-patch-value obj parent-path)]
-          (set-patch-value obj parent-path
+          (replace-patch-value obj parent-path
                            (replace-patch-value parent (first (last segs)) val)))
         (cond (map? obj)
               (assoc obj (second (first segs)) val)
@@ -226,7 +257,7 @@
   [prefix path]
   (clojure.string/replace path (re-pattern prefix) "/"))
 
-(defn sanitize-prefix-in-patch
+(defn sanitize
   [prefix patch]
   (let [path (get patch "path")
         cleaned-path (assoc patch "path" (clean-prefix prefix path))]
@@ -234,16 +265,24 @@
       (assoc cleaned-path "from" (clean-prefix prefix from))
       cleaned-path)))
 
+(defn sanitize-prefix-in-patch
+  [prefix idx patch]
+  (if (vector? patch)
+    (map (partial sanitize (str prefix idx)) patch)
+    (sanitize prefix patch)))
+
 (defn diff-vecs [obj1 obj2 prefix]
   (loop [v1 obj1
          v2 obj2
          i 0
          ops []]
-    (cond (and (> (count ops) 0)
-               (= v2
-                  (reduce
-                   #(apply-patch %1 %2) v1
-                   (map (partial sanitize-prefix-in-patch prefix) ops))))
+    (cond (and (empty? v1) (empty? v2))
+          ops
+          (and (> (count ops) 0)
+                  (= v2
+                     (reduce
+                      #(apply-patch %1 %2) v1
+                      (map (partial sanitize-prefix-in-patch prefix (dec i)) ops))))
           ops
           (= (set v1) (set v2))
           (cond (= i (count v1))
@@ -259,8 +298,11 @@
           (= (rest v1) v2)
           (conj ops (gen-op ["remove" (str prefix i)]))
           (not= (first v1) (first v2))
-          (recur (rest v1) (rest v2) (inc i)
-                 (conj ops (gen-op ["replace" (str prefix i) (first v2)])))
+          (if (and (map? (first v1)) (map? (first v2)))
+            (recur (rest v1) (rest v2) (inc i)
+                   (conj ops (diff* (first v1) (first v2) (str prefix i "/"))))
+            (recur (rest v1) (rest v2) (inc i)
+                 (conj ops (gen-op ["replace" (str prefix i) (first v2)]))))
           (and (= (first v1) (first v2))
                (not= (rest v1) (rest v2)))
           (recur (rest v1) (rest v2) (inc i) ops))))
