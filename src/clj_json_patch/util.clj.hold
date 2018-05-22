@@ -69,9 +69,12 @@
             (vector? obj)
             (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
               (try
+                (println "*** val" val)
+                (println "1 " (subvec obj 0 idx))
+                (println "2 " (subvec obj idx))
                 (vec (concat (subvec obj 0 idx)
                              [val]
-                             (subvec obj idx)))
+                             (subvec obj (+ 1 idx))))
                 (catch Exception e
                   (throw (Exception. (str "Unable to set value at " idx "."))))))))
     (throw (Exception. "Patch path must start with '/'"))))
@@ -156,10 +159,14 @@
             (set-patch-value obj parent-path
                              (remove-patch-value parent (first (last segs)))))
           (cond (map? obj)
-                (dissoc obj (second (first segs)))
+                (do
+                  (println "Here1")
+                  (dissoc obj (second (first segs))))
                 (vector? obj)
-                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
+                (do
+                  (println "Here2")
+                  (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                    (vec (concat (subvec obj 0 idx) (subvec obj (inc idx)))))))))
       (throw (Exception. (str "There is no value at '" path "' to remove."))))
     (catch Exception e
       (throw (Exception. (str "There is no value at '" path "' to remove."))))))
