@@ -122,7 +122,7 @@
                                (conj parent val))
               (set-patch-value obj parent-path
                                (set-patch-value parent (first (last segs)) val))))
-          (if-let [path-exists (try (get-patch-value obj path)
+          (if-let [path-exists (try (get-patch-value obj parent-path)
                                   (catch Exception e
                                     (throw (Exception. (str "Unable to set value at '" path "'.")))))]
           

@@ -216,6 +216,14 @@
          (fact "second nested object unchanged"
                (get (second (get patched "k1")) "s1k1") => "s1v1")))
 
+(facts "Nested JSON patch"
+       (let [obj1 {"nested" {"foo" "bar"}}
+             obj2 {"nested" {"foo" "bar"
+                             "zot" "baz"}}
+             patches [{"op" "add" "path" "/nested/zot" "value" "baz"}]]
+         (fact "nested object is patched"
+               (patch obj1 patches) => obj2)))
+
 (facts "Patch error conditions"
        (let [obj1 {"foo" "bar"}
              patches [{"op" "test" "path" "/baz" "value" "qux"}]]
