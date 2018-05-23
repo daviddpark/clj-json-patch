@@ -144,26 +144,6 @@
       (throw (Exception. "Patch 'from' value must start with '/'")))
     (throw (Exception. "Patch 'path' value must start with '/'"))))
 
-(defn remove-patch-value
-  "Remove the value at 'path' from obj."
-  [obj path]
-  (try
-    (if-let [val (get-patch-value obj path)]
-      (if-let [segs (re-seq #"/([^/]+)" path)]
-        (if (> (count segs) 1)
-          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                parent (get-patch-value obj parent-path)]
-            (set-patch-value obj parent-path
-                             (remove-patch-value parent (first (last segs)))))
-          (cond (map? obj)
-                (dissoc obj (second (first segs)))
-                (vector? obj)
-                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
-      (throw (Exception. (str "There is no value at '" path "' to remove."))))
-    (catch Exception e
-      (throw (Exception. (str "There is no value at '" path "' to remove."))))))
-
 (defn replace-patch-value
   "Replace the value found at 'path' with that bound to 'val'."
   [obj path val]
@@ -183,6 +163,26 @@
                              (subvec obj (inc idx)))))))
       (throw (Exception. "Patch path must start with '/'")))
     (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
+
+(defn remove-patch-value
+  "Remove the value at 'path' from obj."
+  [obj path]
+  (try
+    (if-let [val (get-patch-value obj path)]
+      (if-let [segs (re-seq #"/([^/]+)" path)]
+        (if (> (count segs) 1)
+          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+                parent      (get-patch-value obj parent-path)]
+            (replace-patch-value obj parent-path
+                             (remove-patch-value parent (first (last segs)))))
+          (cond (map? obj)
+                (dissoc obj (second (first segs)))
+                (vector? obj)
+                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
+      (throw (Exception. (str "There is no value at '" path "' to remove."))))
+    (catch Exception e
+      (throw (Exception. (str "There is no value at '" path "' to remove."))))))
 
 (defn test-patch-value
   "Ensure that the value located at 'path' in obj is equal to 'val'."

@@ -224,6 +224,15 @@
          (fact "nested object is patched"
                (patch obj1 patches) => obj2)))
 
+(facts "Remove from object within array"
+       (let [obj1    [{"name" "item1" "foo" "bar"}
+                      {"name" "item2" "foo" "bar"}]
+             obj2    [{"name" "item1"}
+                      {"name" "item2" "foo" "bar"}]
+             patches [{"op" "remove" "path" "/0/foo"}]]
+         (fact "nested object is patched"
+               (patch obj1 patches) => obj2)))
+
 (facts "Patch error conditions"
        (let [obj1 {"foo" "bar"}
              patches [{"op" "test" "path" "/baz" "value" "qux"}]]
