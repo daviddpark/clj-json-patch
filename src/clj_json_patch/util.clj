@@ -111,35 +111,36 @@
   [obj from path]
   (if-let [to-segs (re-seq #"/([^/]+)" path)]
     (if-let [from-segs (re-seq #"/([^/]+)" from)]
-      (if-let [val (get-patch-value obj from)]
-        (if (> (count to-segs) 1)
-          (let [from-parent-path (apply str (map first (take (dec (count from-segs)) from-segs)))
-                to-parent-path (apply str (map first (take (dec (count to-segs)) to-segs)))
-                parent (get-patch-value obj to-parent-path)]
-            (if (= from-parent-path to-parent-path)
-              (set-patch-value obj from-parent-path
-                               (move-patch-value (get-patch-value obj from-parent-path)
-                                                 (first (last from-segs))
-                                                 (first (last to-segs))))
-              (set-patch-value (remove-patch-value obj from)
-                               to-parent-path
-                               (set-patch-value parent (first (last to-segs)) val))))
-          (cond (map? obj)
-                (assoc obj (second (first to-segs)) val)
-                (vector? obj)
-                (let [from-int (try
-                                 (Integer/parseInt (second (re-find #"/(\d+)" from)))
-                                 (catch Exception e
-                                   (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))))
-                        to-int (try
-                                 (Integer/parseInt (second (re-find #"/(\d+)" path)))
-                                 (catch Exception e
-                                   (throw (Exception. (str "Move attempted on value that does not exist at '" path "'.")))))]
-                    (vec (concat (subvec obj 0 from-int) (subvec obj (inc from-int) (inc to-int))
-                                 [(get obj from-int)] (subvec obj (inc to-int)))))
-                ))
-        (throw (Exception. (str "Move attempted on value that does not exist at '"
-                                from "'."))))
+      (let [val (get-patch-value obj from)]
+        (if (some? val)
+          (if (> (count to-segs) 1)
+            (let [from-parent-path (apply str (map first (take (dec (count from-segs)) from-segs)))
+                  to-parent-path (apply str (map first (take (dec (count to-segs)) to-segs)))
+                  parent (get-patch-value obj to-parent-path)]
+              (if (= from-parent-path to-parent-path)
+                (set-patch-value obj from-parent-path
+                                 (move-patch-value (get-patch-value obj from-parent-path)
+                                                   (first (last from-segs))
+                                                   (first (last to-segs))))
+                (set-patch-value (remove-patch-value obj from)
+                                 to-parent-path
+                                 (set-patch-value parent (first (last to-segs)) val))))
+            (cond (map? obj)
+                  (assoc obj (second (first to-segs)) val)
+                  (vector? obj)
+                  (let [from-int (try
+                                   (Integer/parseInt (second (re-find #"/(\d+)" from)))
+                                   (catch Exception e
+                                     (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))))
+                          to-int (try
+                                   (Integer/parseInt (second (re-find #"/(\d+)" path)))
+                                   (catch Exception e
+                                     (throw (Exception. (str "Move attempted on value that does not exist at '" path "'.")))))]
+                      (vec (concat (subvec obj 0 from-int) (subvec obj (inc from-int) (inc to-int))
+                                   [(get obj from-int)] (subvec obj (inc to-int)))))
+                  ))
+          (throw (Exception. (str "Move attempted on value that does not exist at '"
+                                  from "'.")))))
       
       (throw (Exception. "Patch 'from' value must start with '/'")))
     (throw (Exception. "Patch 'path' value must start with '/'"))))
@@ -147,40 +148,42 @@
 (defn replace-patch-value
   "Replace the value found at 'path' with that bound to 'val'."
   [obj path val]
-  (if-let [value (get-patch-value obj path)]
-    (if-let [segs (re-seq #"/([^/]+)" path)]
-      (if (> (count segs) 1)
-        (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-              parent (get-patch-value obj parent-path)]
-          (replace-patch-value obj parent-path
-                           (replace-patch-value parent (first (last segs)) val)))
-        (cond (map? obj)
-              (assoc obj (second (first segs)) val)
-              (vector? obj)
-              (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                (vec (concat (subvec obj 0 idx)
-                             [val]
-                             (subvec obj (inc idx)))))))
-      (throw (Exception. "Patch path must start with '/'")))
-    (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
+  (let [value (get-patch-value obj path)]
+    (if (some? value)
+      (if-let [segs (re-seq #"/([^/]+)" path)]
+        (if (> (count segs) 1)
+          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+                parent (get-patch-value obj parent-path)]
+            (replace-patch-value obj parent-path
+                             (replace-patch-value parent (first (last segs)) val)))
+          (cond (map? obj)
+                (assoc obj (second (first segs)) val)
+                (vector? obj)
+                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                  (vec (concat (subvec obj 0 idx)
+                               [val]
+                               (subvec obj (inc idx)))))))
+        (throw (Exception. "Patch path must start with '/'")))
+      (throw (Exception. (str "Can't replace a value that does not exist at '" path "'."))))))
 
 (defn remove-patch-value
   "Remove the value at 'path' from obj."
   [obj path]
   (try
-    (if-let [val (get-patch-value obj path)]
-      (if-let [segs (re-seq #"/([^/]+)" path)]
-        (if (> (count segs) 1)
-          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                parent      (get-patch-value obj parent-path)]
-            (replace-patch-value obj parent-path
-                             (remove-patch-value parent (first (last segs)))))
-          (cond (map? obj)
-                (dissoc obj (second (first segs)))
-                (vector? obj)
-                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
-      (throw (Exception. (str "There is no value at '" path "' to remove."))))
+    (let [val (get-patch-value obj path)]
+      (if (some? val)
+        (if-let [segs (re-seq #"/([^/]+)" path)]
+          (if (> (count segs) 1)
+            (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+                  parent      (get-patch-value obj parent-path)]
+              (replace-patch-value obj parent-path
+                               (remove-patch-value parent (first (last segs)))))
+            (cond (map? obj)
+                  (dissoc obj (second (first segs)))
+                  (vector? obj)
+                  (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                    (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
+        (throw (Exception. (str "There is no value at '" path "' to remove.")))))
     (catch Exception e
       (throw (Exception. (str "There is no value at '" path "' to remove."))))))
 
