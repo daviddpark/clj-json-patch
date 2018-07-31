@@ -152,6 +152,11 @@
              patches [{"op" "replace" "path" "/baz" "value" "boo"}]]
          (fact "Replacing a Value"
                (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" false "baz" "qux"}
+             obj2 {"baz" "qux" "foo" true}
+             patches [{"op" "replace" "path" "/foo" "value" true}]]
+         (fact "Replacing a boolean false Value"
+               (patch obj1 patches) => obj2))
        (let [obj1 {"foo" {"bar" "kill me"
                           "baz" "boo"}}
              obj2 {"foo" {"baz" "boo"}}
