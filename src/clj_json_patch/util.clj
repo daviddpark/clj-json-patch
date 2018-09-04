@@ -33,12 +33,23 @@
                                       (let [v1 (get obj1 k)]
                                         (cond (not (contains? obj1 k))
                                               (gen-op ["add" (str prefix k) v2])))))))))))
+(defn eval-escape-characters
+  [segment]
+  (clojure.string/replace segment #"(~0|~1)"
+                          (fn [[_ s]] (cond (= s "~0") "~"
+                                            (= s "~1") "/"))))
+
+(defn inject-escape-characters
+  [segment]
+  (clojure.string/replace segment #"(~|\/)"
+                          (fn [[_ s]] (cond (= s "~") "~0"
+                                            (= s "/") "~1"))))
 
 (defn get-patch-value
   "Given the patch path, find the associated value."
   [obj path]
   (if-let [match (re-find #"^/([^/]+)(.*)" path)]
-    (let [seg (second match)
+    (let [seg (eval-escape-characters (second match))
           segs (nth match 2)
           val (cond (map? obj)
                     (get obj seg)
@@ -97,7 +108,7 @@
           (if-let [path-exists (try (get-patch-value obj parent-path)
                                   (catch Exception e
                                     (throw (Exception. (str "Unable to set value at '" path "'.")))))]
-          
+
             (set-patch-value obj parent-path
                              (set-patch-value parent (first (last segs)) val))
             (throw (Exception. (str "Unable to set value at '" path
@@ -141,7 +152,7 @@
                   ))
           (throw (Exception. (str "Move attempted on value that does not exist at '"
                                   from "'.")))))
-      
+
       (throw (Exception. "Patch 'from' value must start with '/'")))
     (throw (Exception. "Patch 'path' value must start with '/'"))))
 
@@ -291,9 +302,9 @@
                  (concat
                   (for [[k v] obj]
                     (if (= v val)
-                      (str prefix k)
+                      (str prefix (inject-escape-characters k))
                       (if-not (string? v)
-                        (get-value-path v val (str prefix k "/")))))))
+                        (get-value-path v val (str prefix (inject-escape-characters k) "/")))))))
            (vector? obj)
            (if-let [idx (some identity (map-indexed #(if (= val %2) %1) obj))]
                (str prefix idx)
