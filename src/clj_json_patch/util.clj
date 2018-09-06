@@ -76,7 +76,7 @@
                                 "'. Consider adding a more explicit data "
                                 "structure as a child of an existing object."))))
       (cond (map? obj)
-            (assoc obj (second (first segs)) val)
+            (assoc obj (eval-escape-characters (second (first segs))) val)
             (vector? obj)
             (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
               (try
