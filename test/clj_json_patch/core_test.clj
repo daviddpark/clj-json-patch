@@ -238,6 +238,13 @@
          (fact "nested object is patched"
                (patch obj1 patches) => obj2)))
 
+(facts "Add to object within array"
+       (let [obj {"array" [{"id" "hello"}]}
+             expected {"array" [{"id" "hello" "foo" "bar"}]}
+             patches [{"op" "add" "path" "/array/0/foo" "value" "bar"}]]
+         (fact "obj with two keys as only element of array"
+               (patch obj patches) => expected)))
+
 (facts "Patch error conditions"
        (let [obj1 {"foo" "bar"}
              patches [{"op" "test" "path" "/baz" "value" "qux"}]]
