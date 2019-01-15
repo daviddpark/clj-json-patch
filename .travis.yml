@@ -4,5 +4,7 @@ script: lein midje
 sudo: required
 jdk:
   - oraclejdk9
+  - openjdk11
+  - openjdk10
+  - openjdk9
   - openjdk8
-  - openjdk7
