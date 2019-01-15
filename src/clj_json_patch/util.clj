@@ -48,16 +48,24 @@
 (defn get-patch-value
   "Given the patch path, find the associated value."
   [obj path]
-  (if-let [match (re-find #"^/([^/]+)(.*)" path)]
-    (let [seg (eval-escape-characters (second match))
-          segs (nth match 2)
-          val (cond (map? obj)
-                    (get obj seg)
-                    (vector? obj)
-                    (nth obj (Integer/parseInt seg)))]
-      (if-not (empty? segs)
-        (get-patch-value val segs)
-        val))))
+  (let [path (if (.startsWith path "#") (subs path 1) path)]
+    (cond
+      (or (= path "") (= path "#"))
+      obj
+      (and (= path "/") (map? obj) (get obj ""))
+      (get obj "")
+      :else
+      (if-let [match (re-find #"^/([^/]+)(.*)" path)]
+        (let [seg (eval-escape-characters (second match))
+              segs (nth match 2)
+              val (cond (map? obj)
+                        (get obj seg)
+                        (vector? obj)
+                        (nth obj (Integer/parseInt seg)))]
+                                        ;(println "seg:" seg "segs:" segs "val:" val)
+          (if-not (empty? segs)
+            (get-patch-value val segs)
+            val))))))
 
 (defn set-patch-value
   "Set val at path in obj"
