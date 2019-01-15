@@ -6,5 +6,7 @@
   :main clj-json-patch.core
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [cheshire "5.8.0"]]
+  :deploy-repositories [["releases" :clojars]
+                        ["snapshots" :clojars]]
   :profiles {:dev {:dependencies [[midje/midje "1.9.5"]]
                    :plugins [[lein-midje "3.2.1"]]}})
