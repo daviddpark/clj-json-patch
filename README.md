@@ -1,9 +1,9 @@
 clj-json-patch
 ==============
 
-Clojure implementation of http://tools.ietf.org/html/rfc6902
-
-Mostly implemented, though the last few examples have yet to be completed.
+Clojure implementation of JSON Patch as specified in 
+http://tools.ietf.org/html/rfc6902 with support for 
+JSON Pointer https://tools.ietf.org/html/rfc6901
 
 [![Build Status](https://travis-ci.org/daviddpark/clj-json-patch.png)](https://travis-ci.org/daviddpark/clj-json-patch)
 
