@@ -8,7 +8,8 @@
       obj3 {"foo" {"bar" {"baz" "deep!"}}}
       obj4 ["foo" "bar"]
       obj5 {"foo" ["bar" "baz" "last"]}
-      obj6 {"foo" {"bar" ["baz" "deeper!"]}}]
+      obj6 {"foo" {"bar" ["baz" "deeper!"]}}
+      obj7 {"foo/bar" "baz"}]
   (facts "get-patch-value"
          (fact "get value from simple map"
                (get-patch-value obj1 "/foo") => "bar")
@@ -21,7 +22,9 @@
          (fact "get value from simple map of array"
                (get-patch-value obj5 "/foo/1") => "baz")
          (fact "get value from map of map with array"
-               (get-patch-value obj6 "/foo/bar/1") => "deeper!"))
+               (get-patch-value obj6 "/foo/bar/1") => "deeper!")
+         (fact "escape / with ~1"
+               (get-patch-value obj7 "/foo~1bar") => "baz"))
   (facts "get-value-path"
          (fact "get path from simple map"
                (get-value-path obj1 "bar") => "/foo")
@@ -34,7 +37,13 @@
          (fact "get path from simple map of array"
                (get-value-path obj5 "baz") => "/foo/1")
          (fact "get path from map of map with array"
-               (get-value-path obj6 "deeper!") => "/foo/bar/1")))
+               (get-value-path obj6 "deeper!") => "/foo/bar/1")
+         (fact "get path from key with /"
+               (get-value-path obj7 "baz") => "/foo~1bar")))
+
+(facts "escaping characters"
+       (fact "must not depend on ordering"
+             (eval-escape-characters "~01") => "~1"))
 
 (facts "diff-vecs"
        (let [v1 ["all" "grass" "cows" "eat"]

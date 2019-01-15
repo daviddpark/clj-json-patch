@@ -219,7 +219,10 @@
          (fact "first nested object updated correctly"
                (get (first (get patched "k1")) "s0k1") => "new value")
          (fact "second nested object unchanged"
-               (get (second (get patched "k1")) "s1k1") => "s1v1")))
+               (get (second (get patched "k1")) "s1k1") => "s1v1"))
+       (fact "Patch with escape characters"
+             (patch {"foo" {"bar" 42}}
+                    [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}}))
 
 (facts "Nested JSON patch"
        (let [obj1 {"nested" {"foo" "bar"}}
