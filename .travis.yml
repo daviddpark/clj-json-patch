@@ -1,6 +1,7 @@
 language: clojure
 lein: lein
 script: lein with-profile +dev midje
+sudo: required
 jdk:
   - oraclejdk7
   - openjdk7
