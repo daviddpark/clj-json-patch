@@ -3,6 +3,6 @@ lein: lein
 script: lein with-profile +dev midje
 sudo: required
 jdk:
-  - oraclejdk7
+  - oraclejdk9
+  - openjdk8
   - openjdk7
-  - openjdk6
