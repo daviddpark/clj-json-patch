@@ -61,14 +61,13 @@
 
 (defn set-patch-value
   "Set val at path in obj"
-  [obj path val]
+  [obj path val & [insert]]
   (if-let [segs (re-seq #"/([^/]+)" path)]
     (if (> (count segs) 1)
       (if-let [path-exists (try (get-patch-value obj path)
                                 (catch Exception e
                                   (throw (Exception. (str "Unable to set value at '" path "'.")))))]
-        (let [parent-match (re-find #"(.*)(/[^/+])" path)
-              parent-path (apply str (map first (take (dec (count segs)) segs)))
+        (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
               parent (get-patch-value obj parent-path)]
           (set-patch-value obj parent-path
                            (set-patch-value parent (first (last segs)) val)))
@@ -82,7 +81,7 @@
               (try
                 (vec (concat (subvec obj 0 idx)
                              [val]
-                             (subvec obj idx)))
+                             (subvec obj (if insert idx (inc idx)))))
                 (catch Exception e
                   (throw (Exception. (str "Unable to set value at " idx "."))))))))
     (throw (Exception. "Patch path must start with '/'"))))
@@ -92,8 +91,7 @@
   [obj path val]
   (if-let [segs (re-seq #"/([^/]+)" path)]
     (if (> (count segs) 1)
-      (let [parent-match (re-find #"(.*)(/[^/+])" path)
-            parent-path (apply str (map first (take (dec (count segs)) segs)))
+      (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
             parent (get-patch-value obj parent-path)]
         (if (vector? parent)
           (let [str-idx (last (last segs))]
@@ -103,12 +101,13 @@
                                              (throw (Exception. (str "Unable to determine array index from '" str-idx "'.")))))))
               (set-patch-value obj parent-path
                                (conj parent val))
-              (set-patch-value obj parent-path
-                               (set-patch-value parent (first (last segs)) val))))
+              (let [first-last-seg (first (last segs))
+                    insert (.endsWith path str-idx)]
+                (set-patch-value obj parent-path
+                                 (set-patch-value parent (first (last segs)) val insert)))))
           (if-let [path-exists (try (get-patch-value obj parent-path)
                                   (catch Exception e
                                     (throw (Exception. (str "Unable to set value at '" path "'.")))))]
-
             (set-patch-value obj parent-path
                              (set-patch-value parent (first (last segs)) val))
             (throw (Exception. (str "Unable to set value at '" path
