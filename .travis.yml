@@ -1,6 +1,6 @@
 language: clojure
 lein: lein
-script: lein with-profile +dev midje
+script: lein midje
 sudo: required
 jdk:
   - oraclejdk9
