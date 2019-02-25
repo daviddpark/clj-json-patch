@@ -49,6 +49,33 @@
                           (fn [[_ s]] (cond (= s "~") "~0"
                                             (= s "/") "~1"))))
 
+(defn ->key [seg]
+  (if *keywordize*
+    (keyword seg)
+    seg))
+
+(defn has-path?
+  "given the patch path, determines if the path exists in the obj"
+  [obj path]
+  (let [path (if (.startsWith path "#") (subs path 1) path)]
+    (cond
+      (and obj (or (= path "") (= path "#")))
+      true
+      (and (= path "/") (map? obj) (contains? obj ""))
+      true
+      :else
+      (if-let [match (re-find #"^/([^/]+)(.*)" path)]
+        (let [seg (eval-escape-characters (second match))
+              segs (nth match 2)
+              [h-path? val] (let [ky (if (vector? obj)
+                                       (Integer/parseInt seg)
+                                       (->key seg))]
+                              [(contains? obj ky)
+                               (get obj ky)])]
+          ;;(println :HAS "seg:" seg "segs:" segs "val:" val "h-path?" h-path?)
+          (if (and h-path? (not (empty? segs)))
+            (has-path? val segs)
+            h-path?))))))
 
 (defn get-patch-value
   "Given the patch path, find the associated value."
@@ -64,12 +91,10 @@
         (let [seg (eval-escape-characters (second match))
               segs (nth match 2)
               val (cond (map? obj)
-                        (get obj (if *keywordize*
-                                   (keyword seg)
-                                   seg))
+                        (get obj (->key seg))
                         (vector? obj)
                         (nth obj (Integer/parseInt seg)))]
-                                        ;(println "seg:" seg "segs:" segs "val:" val)
+          ;;(println :GET "seg:" seg "segs:" segs "val:" val)
           (if-not (empty? segs)
             (get-patch-value val segs)
             val))))))
@@ -90,9 +115,7 @@
                                 "'. Consider adding a more explicit data "
                                 "structure as a child of an existing object."))))
       (cond (map? obj)
-            (assoc obj (if *keywordize*
-                         (keyword (eval-escape-characters (second (first segs))))
-                         (eval-escape-characters (second (first segs))))
+            (assoc obj (->key (eval-escape-characters (second (first segs))))
                    val)
             (vector? obj)
             (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
@@ -140,7 +163,6 @@
   (if-let [to-segs (re-seq #"/([^/]+)" path)]
     (if-let [from-segs (re-seq #"/([^/]+)" from)]
       (let [val (get-patch-value obj from)]
-        (println to-segs from-segs)
         (if (some? val)
           (if (> (count to-segs) 1)
             (let [from-parent-path (apply str (map first (take (dec (count from-segs)) from-segs)))
@@ -156,12 +178,8 @@
                                  (set-patch-value parent (first (last to-segs)) val))))
             (cond (map? obj)
                   (-> obj
-                      (assoc (if *keywordize*
-                               (keyword (second (first to-segs)))
-                               (second (first to-segs))) val)
-                      (dissoc (if *keywordize*
-                                (keyword (second (first from-segs)))
-                                (second (first from-segs)))))
+                      (assoc (->key (second (first to-segs)))  val)
+                      (dissoc (->key (second (first from-segs)))))
                   (vector? obj)
                   (let [from-int (try
                                    (Integer/parseInt (second (re-find #"/(\d+)" from)))
@@ -183,46 +201,41 @@
 (defn replace-patch-value
   "Replace the value found at 'path' with that bound to 'val'."
   [obj path val]
-  (let [value (get-patch-value obj path)]
-    (if (some? value)
-      (if-let [segs (re-seq #"/([^/]+)" path)]
-        (if (> (count segs) 1)
-          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                parent (get-patch-value obj parent-path)]
-            (replace-patch-value obj parent-path
-                                 (replace-patch-value parent (first (last segs)) val)))
-          (cond (map? obj)
-                (assoc obj (if *keywordize*
-                             (keyword (second (first segs)))
-                             (second (first segs))) val)
-                (vector? obj)
-                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                  (vec (concat (subvec obj 0 idx)
-                               [val]
-                               (subvec obj (inc idx)))))))
-        (throw (Exception. "Patch path must start with '/'")))
-      (throw (Exception. (str "Can't replace a value that does not exist at '" path "'."))))))
+  ;;(println "path" obj path val (has-path? obj path))
+  (if (has-path? obj path)
+    (if-let [segs (re-seq #"/([^/]+)" path)]
+      (if (> (count segs) 1)
+        (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+              parent (get-patch-value obj parent-path)]
+          (replace-patch-value obj parent-path
+                               (replace-patch-value parent (first (last segs)) val)))
+        (cond (map? obj)
+              (assoc obj (->key (second (first segs))) val)
+              (vector? obj)
+              (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                (vec (concat (subvec obj 0 idx)
+                             [val]
+                             (subvec obj (inc idx)))))))
+      (throw (Exception. "Patch path must start with '/'")))
+    (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
 
 (defn remove-patch-value
   "Remove the value at 'path' from obj."
   [obj path]
   (try
-    (let [val (get-patch-value obj path)]
-      (if (some? val)
-        (if-let [segs (re-seq #"/([^/]+)" path)]
-          (if (> (count segs) 1)
-            (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                  parent      (get-patch-value obj parent-path)]
-              (replace-patch-value obj parent-path
-                                   (remove-patch-value parent (first (last segs)))))
-            (cond (map? obj)
-                  (dissoc obj (if *keywordize*
-                                (keyword (second (first segs)))
-                                (second (first segs))))
-                  (vector? obj)
-                  (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
-                    (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
-        (throw (Exception. (str "There is no value at '" path "' to remove.")))))
+    (if (has-path? obj path)
+      (if-let [segs (re-seq #"/([^/]+)" path)]
+        (if (> (count segs) 1)
+          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+                parent      (get-patch-value obj parent-path)]
+            (replace-patch-value obj parent-path
+                                 (remove-patch-value parent (first (last segs)))))
+          (cond (map? obj)
+                (dissoc obj (->key (second (first segs))))
+                (vector? obj)
+                (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
+      (throw (Exception. (str "There is no value at '" path "' to remove."))))
     (catch Exception e
       (throw (Exception. (str "There is no value at '" path "' to remove."))))))
 
@@ -235,8 +248,7 @@
         (throw (Exception.
                  (str "The value is: "
                       (json/generate-string value))))
-        obj)
-      )
+        obj))
     (catch Exception e
       (throw (Exception.
                (str "The test failed. "
