@@ -10,4 +10,10 @@
 (defn diff
   "Prepares a JSON patch document representing the difference
   between two JSON objects."
-  [obj1 obj2] (diff* obj1 obj2 "/"))
+  [obj1 obj2]
+  #?(:clj   (diff* obj1
+                   obj2
+                   "/")
+     :cljs  (diff* (js->clj (.parse js/JSON obj1))
+                   (js->clj (.parse js/JSON obj2))
+                   "/")))
