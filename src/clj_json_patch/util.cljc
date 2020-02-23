@@ -182,7 +182,7 @@
                       (vec (concat (subvec obj 0 from-int) (subvec obj (inc from-int) (inc to-int))
                                    [(get obj from-int)] (subvec obj (inc to-int)))))))
           #?(:clj (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))
-             :CLJS (throw (js/Error. (str "Move attempted on value that does not exist at '" from "'."))))))
+             :cljs (throw (js/Error. (str "Move attempted on value that does not exist at '" from "'."))))))
       #?(:clj (throw (Exception. "Patch 'from' value must start with '/'"))
          :cljs (throw (js/Error. "Patch 'from' value must start with '/'"))))
     #?(:clj (throw (Exception. "Patch 'path' value must start with '/'"))
