@@ -85,7 +85,7 @@
           (set-patch-value obj parent-path
                            (set-patch-value parent (first (last segs)) val)))
         #?(:clj (throw (Exception. (str "Unable to set value at '" path
-                                "'. Consider adding a more explicit data "
+                                    "'. Consider adding a more explicit data "
                                         "structure as a child of an existing object.")))
            :cljs (throw (js/Error. (str "Unable to set value at '" path
                                         "'. Consider adding a more explicit data "
@@ -99,10 +99,10 @@
                 (vec (concat (subvec obj 0 idx)
                          [val]
                          (subvec obj (if insert idx (inc idx)))))
-                  #?(:clj (catch Exception e
-                            (throw (Exception. (str "Unable to set value at " idx "."))))
-                     :cljs (catch js/Object e
-                             (throw (js/Error. (str "Unable to set value at " idx ".")))))))))
+                #?(:clj (catch Exception e
+                          (throw (Exception. (str "Unable to set value at " idx "."))))
+                   :cljs (catch js/Object e
+                           (throw (js/Error. (str "Unable to set value at " idx ".")))))))))
     #?(:clj  (throw (Exception. "Patch path must start with '/'"))
        :cljs (throw (js/Error. "Patch path must start with '/'"))))) ;Should be throwing an exception
 
@@ -117,8 +117,8 @@
           (let [str-idx (last (last segs))]
             (if (or (= "-" str-idx)
                     (= (count parent) #?(:clj (try (Integer/parseInt str-idx)
-                                           (catch java.lang.NumberFormatException e
-                                                 (throw (Exception. (str "Unable to determine array index from '" str-idx "'.")))))
+                                               (catch java.lang.NumberFormatException e
+                                                     (throw (Exception. (str "Unable to determine array index from '" str-idx "'.")))))
                                          :cljs (if (js/isNaN (js/parseInt str-idx))
                                                  (throw (js/Error. (str "Unable to determine array index from '" str-idx "'.")))
                                                  (js/parseInt str-idx)))))
@@ -136,7 +136,7 @@
             (set-patch-value obj parent-path
                              (set-patch-value parent (first (last segs)) val))
             #?(:clj (throw (Exception. (str "Unable to set value at '" path
-                                "'. Consider adding a more explicit data "
+                                        "'. Consider adding a more explicit data "
                                             "structure as a child of an existing object.")))
                :cljs (throw (js/Error. (str "Unable to set value at '" path
                                             "'. Consider adding a more explicit data "
@@ -168,21 +168,21 @@
                   (assoc obj (second (first to-segs)) val)
                   (vector? obj)
                   (let [from-int #?(:clj (try (Integer/parseInt (second (re-find #"/(\d+)" from)))
-			                   (catch Exception e
-			                     (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))))
+                                          (catch Exception e
+                                               (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))))
                                     :cljs (try (js/parseInt (second (re-find #"/(\d+)" from)))
                                             (catch js/Object e
                                               (throw (js/Error. (str "Move attempted on value that does not exist at '" from "'."))))))
                           to-int #?(:clj (try (Integer/parseInt (second (re-find #"/(\d+)" path)))
-	                                   (catch Exception e
-                                             (throw (Exception. (str "Move attempted on value that does not exist at '" path "'.")))))
+                                          (catch Exception e
+                                                   (throw (Exception. (str "Move attempted on value that does not exist at '" path "'.")))))
                                     :cljs (try (js/parseInt (second (re-find #"/(\d+)" path)))
                                             (catch js/Object e
                                               (throw (js/Error. (str "Move attempted on value that does not exist at '" path "'."))))))]
                       (vec (concat (subvec obj 0 from-int) (subvec obj (inc from-int) (inc to-int))
                                    [(get obj from-int)] (subvec obj (inc to-int)))))))
           #?(:clj (throw (Exception. (str "Move attempted on value that does not exist at '" from "'.")))
-             :CLJS (throw (js/Error. (str "Move attempted on value that does not exist at '" from "'."))))))
+             :cljs (throw (js/Error. (str "Move attempted on value that does not exist at '" from "'."))))))
       #?(:clj (throw (Exception. "Patch 'from' value must start with '/'"))
          :cljs (throw (js/Error. "Patch 'from' value must start with '/'"))))
     #?(:clj (throw (Exception. "Patch 'path' value must start with '/'"))
@@ -215,22 +215,22 @@
 (defn remove-patch-value-func
   "Remove the value at 'path' from obj."
   [obj path]
-    (let [val (get-patch-value obj path)]
-      (if (some? val)
-        (if-let [segs (re-seq #"/([^/]+)" path)]
-          (if (> (count segs) 1)
-            (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                  parent      (get-patch-value obj parent-path)]
-              (replace-patch-value obj parent-path
-                               (remove-patch-value parent (first (last segs)))))
-            (cond (map? obj)
-                  (dissoc obj (second (first segs)))
-                  (vector? obj)
-                (let [idx #?(:clj (Integer/parseInt (second (re-find #"/(\d+)" path)))
-                             :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
-                    (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
-      #?(:clj (throw (Exception. (str "There is no value at '" path "' to remove.")))
-         :cljs (throw (js/Error. (str "There is no value at '" path "' to remove.")))))))
+  (let [val (get-patch-value obj path)]
+    (if (some? val)
+      (if-let [segs (re-seq #"/([^/]+)" path)]
+        (if (> (count segs) 1)
+          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+                parent      (get-patch-value obj parent-path)]
+            (replace-patch-value obj parent-path
+                             (remove-patch-value parent (first (last segs)))))
+          (cond (map? obj)
+                (dissoc obj (second (first segs)))
+                (vector? obj)
+              (let [idx #?(:clj (Integer/parseInt (second (re-find #"/(\d+)" path)))
+                           :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
+                  (vec (concat (subvec obj 0 idx) (subvec obj (inc idx))))))))
+     #?(:clj (throw (Exception. (str "There is no value at '" path "' to remove.")))
+        :cljs (throw (js/Error. (str "There is no value at '" path "' to remove.")))))))
 
 
 (defn remove-patch-value
@@ -255,11 +255,11 @@
            :cljs (throw (js/Error. (str "The value is: " (.stringify js/JSON (clj->js value))))))
         obj))
     #?(:clj (catch Exception e
-      (throw (Exception.
-              (str "The test failed. "
-                   (json/generate-string val)
-                   " is not found at " path ". "
-                           (.getMessage e)))))
+             (throw (Exception.
+                     (str "The test failed. "
+                          (json/generate-string val)
+                          " is not found at " path ". "
+                          (.getMessage e)))))
        :cljs (catch js/Object e
                (throw (js/Error.
                         (str "The test failed. "
@@ -316,10 +316,10 @@
     (cond (and (empty? v1) (empty? v2))
           ops
           (and (> (count ops) 0)
-                  (= v2
-                     (reduce
-                      #(apply-patch %1 %2) v1
-                      (map (partial sanitize-prefix-in-patch prefix (dec i)) ops))))
+               (= v2
+                  (reduce
+                   #(apply-patch %1 %2) v1
+                   (map (partial sanitize-prefix-in-patch prefix (dec i)) ops))))
           ops
           (= (set v1) (set v2))
           (cond (= i (count v1))
@@ -348,18 +348,18 @@
   "Traverses obj, looking for a value that matches val, returns path to value."
   ([obj val] (get-value-path obj val "/"))
   ([obj val prefix]
-     (cond (map? obj)
-           (some identity
-                 (concat
-                  (for [[k v] obj]
-                    (if (= v val)
-                      (str prefix (inject-escape-characters k))
-                      (if-not (string? v)
-                        (get-value-path v val (str prefix (inject-escape-characters k) "/")))))))
-           (vector? obj)
-           (if-let [idx (some identity (map-indexed #(if (= val %2) %1) obj))]
-               (str prefix idx)
-               (map-indexed #(get-value-path %2 val (str prefix %1 "/")) obj)))))
+   (cond (map? obj)
+         (some identity
+               (concat
+                (for [[k v] obj]
+                  (if (= v val)
+                    (str prefix (inject-escape-characters k))
+                    (if-not (string? v)
+                      (get-value-path v val (str prefix (inject-escape-characters k) "/")))))))
+         (vector? obj)
+         (if-let [idx (some identity (map-indexed #(if (= val %2) %1) obj))]
+             (str prefix idx)
+             (map-indexed #(get-value-path %2 val (str prefix %1 "/")) obj)))))
 
 (defn transform-moves
   "Attempt to reconcile add/remove patch entries

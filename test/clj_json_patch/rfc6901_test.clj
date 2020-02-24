@@ -16,8 +16,8 @@
                   "i\\j" 5
                   "k\"l" 6
                   " " 7
-                  "m~n" 8
-                  }]
+                  "m~n" 8}]
+
          (facts "basic strings"
                 (fact "whole doc"
                       (get-patch-value doc "") => doc)
@@ -68,4 +68,3 @@
                       (get-patch-value doc "#/ ") => 7)
                 (fact "#/m~0n"
                       (get-patch-value doc "#/m~0n") => 8))))
-
