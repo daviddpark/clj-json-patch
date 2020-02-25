@@ -8,6 +8,8 @@
 (declare diff-vecs)
 (declare gen-op)
 
+(def ^:dynamic *keywordize* false)
+
 (defn diff*
   "Prepares a JSON patch document representing the difference
    between two JSON objects."
@@ -17,24 +19,26 @@
                          (diff-vecs obj1 obj2 prefix)
                          (and (map? obj1) (map? obj2))
                          (vec
-                          (flatten
-                           (remove nil?
-                                   (concat
-                                    (for [[k v1] obj1]
-                                      (let [v2 (get obj2 k)]
-                                        (cond (and (vector? v1) (vector? v2))
-                                              (diff* v1 v2 (str prefix k "/"))
-                                              (not (contains? obj2 k))
-                                              (gen-op ["remove" (str prefix k)])
-                                              (and (map? v1) (map? v2))
-                                              (diff* v1 v2 (str prefix k "/"))
-                                              (and (contains? obj2 k)
-                                                   (not= v1 v2))
-                                              (gen-op ["replace" (str prefix k) v2]))))
-                                    (for [[k v2] obj2]
-                                      (let [v1 (get obj1 k)]
-                                        (cond (not (contains? obj1 k))
-                                              (gen-op ["add" (str prefix k) v2])))))))))))
+                           (flatten
+                             (remove nil?
+                                     (concat
+                                       (for [[k v1] obj1]
+                                         (let [k* (name k)
+                                               v2 (get obj2 k)]
+                                           (cond (and (vector? v1) (vector? v2))
+                                                 (diff* v1 v2 (str prefix k* "/"))
+                                                 (not (contains? obj2 k))
+                                                 (gen-op ["remove" (str prefix k*)])
+                                                 (and (map? v1) (map? v2))
+                                                 (diff* v1 v2 (str prefix k* "/"))
+                                                 (and (contains? obj2 k)
+                                                      (not= v1 v2))
+                                                 (gen-op ["replace" (str prefix k*) v2]))))
+                                       (for [[k v2] obj2]
+                                         (let [k* (name k)
+                                               v1 (get obj1 k)]
+                                           (cond (not (contains? obj1 k))
+                                                 (gen-op ["add" (str prefix k*) v2])))))))))))
 (defn eval-escape-characters
   [segment]
   (clo-str/replace segment #"(~0|~1)"
@@ -46,6 +50,34 @@
   (clo-str/replace segment #"(~|\/)"
                           (fn [[_ s]] (cond (= s "~") "~0"
                                             (= s "/") "~1"))))
+
+(defn ->key [seg]
+  (if *keywordize*
+    (keyword seg)
+    seg))
+
+(defn has-path?
+  "given the patch path, determines if the path exists in the obj"
+  [obj path]
+  (let [path (if (.startsWith path "#") (subs path 1) path)]
+    (cond
+      (and obj (or (= path "") (= path "#")))
+      true
+      (and (= path "/") (map? obj) (contains? obj ""))
+      true
+      :else
+      (if-let [match (re-find #"^/([^/]+)(.*)" path)]
+        (let [seg (eval-escape-characters (second match))
+              segs (nth match 2)
+              [h-path? val] (let [ky (if (vector? obj)
+                                       (Integer/parseInt seg)
+                                       (->key seg))]
+                              [(contains? obj ky)
+                               (get obj ky)])]
+          ;;(println :HAS "seg:" seg "segs:" segs "val:" val "h-path?" h-path?)
+          (if (and h-path? (not (empty? segs)))
+            (has-path? val segs)
+            h-path?))))))
 
 (defn get-patch-value
   "Given the patch path, find the associated value."
@@ -61,7 +93,7 @@
         (let [seg (eval-escape-characters (second match))
               segs (nth match 2)
               val (cond (map? obj)
-                        (get obj seg)
+                        (get obj (->key seg))
                         (vector? obj)
                         (nth obj #?(:clj  (Integer/parseInt seg)
                                     :cljs (js/parseInt seg))))]
@@ -91,7 +123,8 @@
                                         "'. Consider adding a more explicit data "
                                         "structure as a child of an existing object.")))))
       (cond (map? obj)
-            (assoc obj (eval-escape-characters (second (first segs))) val)
+            (assoc obj (->key (eval-escape-characters (second (first segs))))
+                   val)
             (vector? obj)
             (let [idx #?(:clj  (Integer/parseInt (second (re-find #"/(\d+)" path)))
                          :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
@@ -165,7 +198,9 @@
                                  to-parent-path
                                  (set-patch-value parent (first (last to-segs)) val))))
             (cond (map? obj)
-                  (assoc obj (second (first to-segs)) val)
+                  (-> obj
+                      (assoc (->key (second (first to-segs)))  val)
+                      (dissoc (->key (second (first from-segs)))))
                   (vector? obj)
                   (let [from-int #?(:clj (try (Integer/parseInt (second (re-find #"/(\d+)" from)))
                                           (catch Exception e
@@ -191,16 +226,37 @@
 (defn replace-patch-value
   "Replace the value found at 'path' with that bound to 'val'."
   [obj path val]
-  (let [value (get-patch-value obj path)]
-    (if (some? value)
+  ;;(println "path" obj path val (has-path? obj path))
+  (if (has-path? obj path)
+    (if-let [segs (re-seq #"/([^/]+)" path)]
+      (if (> (count segs) 1)
+        (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
+              parent (get-patch-value obj parent-path)]
+          (replace-patch-value obj parent-path
+                               (replace-patch-value parent (first (last segs)) val)))
+        (cond (map? obj)
+              (assoc obj (->key (second (first segs))) val)
+              (vector? obj)
+              (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+                (vec (concat (subvec obj 0 idx)
+                             [val]
+                             (subvec obj (inc idx)))))))
+      (throw (Exception. "Patch path must start with '/'")))
+    (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
+
+(defn remove-patch-value
+  "Remove the value at 'path' from obj."
+  [obj path]
+  (try
+    (if (has-path? obj path)
       (if-let [segs (re-seq #"/([^/]+)" path)]
         (if (> (count segs) 1)
           (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                parent (get-patch-value obj parent-path)]
+                parent      (get-patch-value obj parent-path)]
             (replace-patch-value obj parent-path
-                             (replace-patch-value parent (first (last segs)) val)))
+                                 (remove-patch-value parent (first (last segs)))))
           (cond (map? obj)
-                (assoc obj (second (first segs)) val)
+                (dissoc obj (->key (second (first segs))))
                 (vector? obj)
                 (let [idx #?(:clj (Integer/parseInt (second (re-find #"/(\d+)" path)))
                              :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
@@ -269,10 +325,14 @@
 
 (defn apply-patch [obj patch]
   "Apply the patch operation in patch to obj, returning the new obj representation."
-  (let [op (get patch "op")
-        path (get patch "path")
-        from (get patch "from")
-        value (get patch "value")]
+  (let [op (or (get patch "op")
+               (get patch :op))
+        path (or (get patch "path")
+                 (get patch :path))
+        from (or (get patch "from")
+                 (get patch :from))
+        value (or (get patch "value")
+                  (get patch :value))]
     (cond (= "add" op)
           (add-patch-value obj path value)
           (= "move" op)
@@ -339,7 +399,7 @@
             (recur (rest v1) (rest v2) (inc i)
                    (conj ops (diff* (first v1) (first v2) (str prefix i "/"))))
             (recur (rest v1) (rest v2) (inc i)
-                 (conj ops (gen-op ["replace" (str prefix i) (first v2)]))))
+                   (conj ops (gen-op ["replace" (str prefix i) (first v2)]))))
           (and (= (first v1) (first v2))
                (not= (rest v1) (rest v2)))
           (recur (rest v1) (rest v2) (inc i) ops))))
@@ -358,8 +418,8 @@
                       (get-value-path v val (str prefix (inject-escape-characters k) "/")))))))
          (vector? obj)
          (if-let [idx (some identity (map-indexed #(if (= val %2) %1) obj))]
-             (str prefix idx)
-             (map-indexed #(get-value-path %2 val (str prefix %1 "/")) obj)))))
+           (str prefix idx)
+           (map-indexed #(get-value-path %2 val (str prefix %1 "/")) obj)))))
 
 (defn transform-moves
   "Attempt to reconcile add/remove patch entries
