@@ -4,10 +4,9 @@
 
 (defn call-apply-patch
   [obj patches]
-  (reduce #(apply-patch %1 %2)
-          #?(:clj  obj patches
-             :cljs (js->clj (.parse js/JSON obj))
-                   (js->clj (.parse js/JSON patches)))))
+  #?(:clj  (reduce #(apply-patch %1 %2) obj patches)
+     :cljs (reduce #(apply-patch %1 %2) (js->clj (.parse js/JSON obj))
+                                        (js->clj (.parse js/JSON patches)))))
 
 
 (defn patch
