@@ -102,7 +102,7 @@
          (fact "object val within a vector replaced"
                (diff obj1 obj2) => [{"op" "replace", "path" "/test/0/key1", "value" "val1replaced"}]))
        (let [obj1 {"test" [{"key1" nil
-                           "key2" "val2"}]}
+                            "key2" "val2"}]}
              obj2 {"test" [{"key2" "val2"}]}]
          (fact "nil key vs absent key within a vector"
                (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}])))
@@ -157,72 +157,72 @@
              patches [{"op" "replace" "path" "/foo" "value" true}]]
          (fact "Replacing a boolean false Value"
                (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" {"bar" "kill me"
-                          "baz" "boo"}}
-             obj2 {"foo" {"baz" "boo"}}
-             patches [{"op" "remove" "path" "/foo/bar"}]]
-         (fact "Removing a Nested Object Member"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" {"baz" "boo"}}
-             obj2 {"child" {"grandchild" {}}
-                   "foo" {"baz" "boo"}}
-             patches [{"op" "add" "path" "/child" "value" {"grandchild" {}}}]]
-         (fact "Adding a Nested Object Member"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" ["baz" "boo"]}
-             obj2 {"foo" ["baz" "boo" "added"]}
-             patches [{"op" "add" "path" "/foo/2" "value" "added"}]]
-         (fact "Adding to a nested array"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" ["baz" "boo"]}
-             obj2 {"foo" ["baz" "boo" "added"]}
-             patches [{"op" "add" "path" "/foo/-" "value" "added"}]]
-         (fact "Adding to the end of a nested array"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" "bar"}
-             obj2 {"foo" "bar" "baz" "qux"}
-             patches [{"op" "add" "path" "/baz" "value" "qux" "xyz" 123}]]
-         (fact "Ignoring unrecognized elements"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" "bar"}
-             patches [{"op" "add" "path" "/baz/bat" "value" "qux"}]]
-         (fact "Adding to a nonexistent target"
-               (patch obj1 patches) => (throws Exception "Unable to set value at '/baz/bat'. Consider adding a more explicit data structure as a child of an existing object.")))
-       (let [obj1 {"foo" {"bar" "baz"
-                          "waldo" "fred"}
-                   "qux" {"corge" "grault"}}
-             obj2 {"foo" {"bar" "baz"}
-                   "qux" {"corge" "grault"
-                          "thud" "fred"}}
-             patches [{"op" "move" "from" "/foo/waldo" "path" "/qux/thud"}]]
-         (fact "Moving a Value"
-               (patch obj1 patches) => obj2))
-       (let [obj1 {"foo" ["all" "grass" "cows" "eat"]}
-             obj2 {"foo" ["all" "cows" "eat" "grass"]}
-             patches [{"op" "move" "from" "/foo/1" "path" "/foo/3"}]]
-         (fact "Moving an Array Element"
-               (patch obj1 patches) => obj2))
-       (let [obj [ "a" 2 "c"]
-             patches [{ "op" "test" "path" "/1" "value" 2}]]
-         (fact "Successful test ops return object"
-               (patch obj patches) => obj))
-       (let [obj {"baz" "qux" "foo" [ "a" 2 "c"]}
-             patches [{ "op" "test" "path" "/baz" "value" "qux"}
-                      { "op" "test" "path" "/foo/1" "value" 2}]]
-         (fact "Successful test ops return object"
-               (patch obj patches) => obj))
-       (let [obj {"k1" [{"s0k1" "s0v1"} {"s1k1" "s1v1"}]}
-             patches [{"op" "replace" "path" "/k1/0/s0k1" "value" "new value"}]
-             patched (patch obj patches)]
-         (fact "expected patched object"
-               patched => {"k1" [{"s0k1" "new value"} {"s1k1" "s1v1"}]})
-         (fact "first nested object updated correctly"
-               (get (first (get patched "k1")) "s0k1") => "new value")
-         (fact "second nested object unchanged"
-               (get (second (get patched "k1")) "s1k1") => "s1v1"))
-       (fact "Patch with escape characters"
-             (patch {"foo" {"bar" 42}}
-                    [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}}))
+      (let [obj1 {"foo" {"bar" "kill me"
+                         "baz" "boo"}}
+            obj2 {"foo" {"baz" "boo"}}
+            patches [{"op" "remove" "path" "/foo/bar"}]]
+        (fact "Removing a Nested Object Member"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" {"baz" "boo"}}
+            obj2 {"child" {"grandchild" {}}
+                  "foo" {"baz" "boo"}}
+            patches [{"op" "add" "path" "/child" "value" {"grandchild" {}}}]]
+        (fact "Adding a Nested Object Member"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" ["baz" "boo"]}
+            obj2 {"foo" ["baz" "boo" "added"]}
+            patches [{"op" "add" "path" "/foo/2" "value" "added"}]]
+        (fact "Adding to a nested array"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" ["baz" "boo"]}
+            obj2 {"foo" ["baz" "boo" "added"]}
+            patches [{"op" "add" "path" "/foo/-" "value" "added"}]]
+        (fact "Adding to the end of a nested array"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" "bar"}
+            obj2 {"foo" "bar" "baz" "qux"}
+            patches [{"op" "add" "path" "/baz" "value" "qux" "xyz" 123}]]
+        (fact "Ignoring unrecognized elements"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" "bar"}
+            patches [{"op" "add" "path" "/baz/bat" "value" "qux"}]]
+        (fact "Adding to a nonexistent target"
+              (patch obj1 patches) => (throws Exception "Unable to set value at '/baz/bat'. Consider adding a more explicit data structure as a child of an existing object.")))
+      (let [obj1 {"foo" {"bar" "baz"
+                         "waldo" "fred"}
+                  "qux" {"corge" "grault"}}
+            obj2 {"foo" {"bar" "baz"}
+                  "qux" {"corge" "grault"
+                         "thud" "fred"}}
+            patches [{"op" "move" "from" "/foo/waldo" "path" "/qux/thud"}]]
+        (fact "Moving a Value"
+              (patch obj1 patches) => obj2))
+      (let [obj1 {"foo" ["all" "grass" "cows" "eat"]}
+            obj2 {"foo" ["all" "cows" "eat" "grass"]}
+            patches [{"op" "move" "from" "/foo/1" "path" "/foo/3"}]]
+        (fact "Moving an Array Element"
+              (patch obj1 patches) => obj2))
+      (let [obj [ "a" 2 "c"]
+            patches [{ "op" "test" "path" "/1" "value" 2}]]
+        (fact "Successful test ops return object"
+              (patch obj patches) => obj))
+      (let [obj {"baz" "qux" "foo" [ "a" 2 "c"]}
+            patches [{ "op" "test" "path" "/baz" "value" "qux"}
+                     { "op" "test" "path" "/foo/1" "value" 2}]]
+        (fact "Successful test ops return object"
+              (patch obj patches) => obj))
+      (let [obj {"k1" [{"s0k1" "s0v1"} {"s1k1" "s1v1"}]}
+            patches [{"op" "replace" "path" "/k1/0/s0k1" "value" "new value"}]
+            patched (patch obj patches)]
+        (fact "expected patched object"
+              patched => {"k1" [{"s0k1" "new value"} {"s1k1" "s1v1"}]})
+        (fact "first nested object updated correctly"
+              (get (first (get patched "k1")) "s0k1") => "new value")
+        (fact "second nested object unchanged"
+              (get (second (get patched "k1")) "s1k1") => "s1v1"))
+      (fact "Patch with escape characters"
+            (patch {"foo" {"bar" 42}}
+                   [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}}))
 
 (facts "Nested JSON patch"
        (let [obj1 {"nested" {"foo" "bar"}}
@@ -260,7 +260,7 @@
        (let [obj1 {"foo" "bar"}
              patches [{"op" "remove" "path" "/baz" "value" "qux"}]]
          (fact "Removing an Object Member"
-               (patch obj1 patches) => (throws Exception "There is no value at '/baz' to remove.")))       
+               (patch obj1 patches) => (throws Exception "There is no value at '/baz' to remove.")))
        (let [obj1 {"foo" ["bar" "baz"]}
              patches [{"op" "remove" "path" "/foo/6" "value" "qux"}]]
          (fact "Removing an Array Element"
