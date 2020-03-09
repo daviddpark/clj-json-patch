@@ -1,6 +1,6 @@
 (ns clj-json-patch.core-test
   (:require [clojure.test :refer :all]
-            [clj-json-patch.core :refer :all])
+            [clj-json-patch.core :refer [diff patch]])
   (:use [midje.sweet]))
 
 (facts "applying patch"

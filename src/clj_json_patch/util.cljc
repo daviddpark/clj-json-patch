@@ -70,8 +70,9 @@
         (let [seg (eval-escape-characters (second match))
               segs (nth match 2)
               [h-path? val] (let [ky (if (vector? obj)
-                                       (Integer/parseInt seg)
-                                       (->key seg))]
+                                       #?(:clj (Integer/parseInt seg)
+                                          :cljs (js/parseInt seg))
+                                         (->key seg))]
                               [(contains? obj ky)
                                (get obj ky)])]
           ;;(println :HAS "seg:" seg "segs:" segs "val:" val "h-path?" h-path?)
@@ -237,36 +238,15 @@
         (cond (map? obj)
               (assoc obj (->key (second (first segs))) val)
               (vector? obj)
-              (let [idx (Integer/parseInt (second (re-find #"/(\d+)" path)))]
+              (let [idx #?(:clj (Integer/parseInt (second (re-find #"/(\d+)" path)))
+                           :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
                 (vec (concat (subvec obj 0 idx)
                              [val]
                              (subvec obj (inc idx)))))))
-      (throw (Exception. "Patch path must start with '/'")))
-    (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))))
-
-(defn remove-patch-value
-  "Remove the value at 'path' from obj."
-  [obj path]
-  (try
-    (if (has-path? obj path)
-      (if-let [segs (re-seq #"/([^/]+)" path)]
-        (if (> (count segs) 1)
-          (let [parent-path (apply str (map first (take (dec (count segs)) segs)))
-                parent      (get-patch-value obj parent-path)]
-            (replace-patch-value obj parent-path
-                                 (remove-patch-value parent (first (last segs)))))
-          (cond (map? obj)
-                (dissoc obj (->key (second (first segs))))
-                (vector? obj)
-                (let [idx #?(:clj (Integer/parseInt (second (re-find #"/(\d+)" path)))
-                             :cljs (js/parseInt (second (re-find #"/(\d+)" path))))]
-                  (vec (concat (subvec obj 0 idx)
-                               [val]
-                               (subvec obj (inc idx)))))))
-        #?(:clj (throw (Exception. "Patch path must start with '/'"))
-           :cljs (throw (js/Error. "Patch path must start with '/'"))))
-      #?(:clj (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))
-         :cljs (throw (js/Error. (str "Can't replace a value that does not exist at '" path "'.")))))))
+      #?(:clj (throw (Exception. "Patch path must start with '/'"))
+         :cljs (throw (js/Error. "Patch path must start with '/'"))))
+    #?(:clj (throw (Exception. (str "Can't replace a value that does not exist at '" path "'.")))
+       :cljs (throw (js/Error. (str "Can't replace a value that does not exist at '" path "'."))))))
 
 (defn remove-patch-value-func
   "Remove the value at 'path' from obj."
@@ -298,9 +278,6 @@
        :cljs (catch js/Object e
                (throw (js/Error. (str "There is no value at '" path "' to remove.")))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Works for both clj & cljs
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn test-patch-value
   "Ensure that the value located at 'path' in obj is equal to 'val'."
   [obj path val]
