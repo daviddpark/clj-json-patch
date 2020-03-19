@@ -41,3 +41,10 @@ clj-json-patch.core=> (patch {"foo" ["all" "grass" "cows" "eat"]}
                              [{"op" "move", "from" "/foo/1", "path" "/foo/3"}])
 {"foo" ["all" "cows" "eat" "grass"]}
 ```
+
+Run Unit Tests
+--------------
+
+```shell
+lein midje
+```
