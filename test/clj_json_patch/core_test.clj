@@ -105,7 +105,12 @@
                             "key2" "val2"}]}
              obj2 {"test" [{"key2" "val2"}]}]
          (fact "nil key vs absent key within a vector"
-               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}])))
+               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}]))
+       (let [obj1 [{"key1" nil
+                    "key2" "val2"}]
+             obj2 [{"key2" "val2"}]]
+         (fact "Testing vector compare"
+               (diff obj1 obj2) => [{"op" "remove", "path" "/0/key1"}])))
 
 (facts "Happy path JSON patch"
        (let [obj1 {"foo" "bar"}
