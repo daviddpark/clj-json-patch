@@ -1,5 +1,6 @@
 (ns clj-json-patch.core
   (:use [clj-json-patch.util :only [apply-patch diff* *keywordize*]]))
+(def log #?(:cljs (.-log js/console)))
 
 (defn call-apply-patch
   [obj patches]
@@ -30,3 +31,4 @@
   ([obj1 obj2 keywordize?]
    (binding [*keywordize* keywordize?])
    (call-diff* obj1 obj2 "/")))
+
