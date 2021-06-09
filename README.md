@@ -11,7 +11,7 @@ JSON Pointer https://tools.ietf.org/html/rfc6901
 Usage
 -----
 ```clojure
-[clj-json-patch 0.1.6]
+[clj-json-patch 0.1.7]
 
 ;; From some example namespace:
 (ns example.namespace
@@ -40,4 +40,11 @@ clj-json-patch.core=> (patch {"foo" "bar"} [{"op" "replace", "path" "/foo", "val
 clj-json-patch.core=> (patch {"foo" ["all" "grass" "cows" "eat"]}
                              [{"op" "move", "from" "/foo/1", "path" "/foo/3"}])
 {"foo" ["all" "cows" "eat" "grass"]}
+```
+
+Run Unit Tests
+--------------
+
+```shell
+lein midje
 ```
