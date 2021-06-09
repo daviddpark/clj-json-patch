@@ -1,7 +1,16 @@
 (ns clj-json-patch.core-test
   (:require [clojure.test :refer :all]
-            [clj-json-patch.core :refer :all])
+            [clj-json-patch.core :refer [diff patch]])
   (:use [midje.sweet]))
+
+(deftest my-test
+  (is (= 4 5)))
+
+(deftest patch-test
+       (let [v ["all" "grass" "cows" "eat" "slowly"]
+             p [{"from" "/1", "op" "move", "path" "/3"}]
+             expected ["all" "cows" "eat" "grass" "slowly"]]
+         (is (= (patch v p) expected))))
 
 (facts "applying patch"
        (let [v ["all" "grass" "cows" "eat" "slowly"]
@@ -105,7 +114,20 @@
                             "key2" "val2"}]}
              obj2 {"test" [{"key2" "val2"}]}]
          (fact "nil key vs absent key within a vector"
-               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}])))
+               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}]))
+       (let [obj1 [{"key1" nil
+                    "key2" "val2"}]
+             obj2 [{"key2" "val2"}]]
+         (fact "Testing vector compare"
+               (diff obj1 obj2) => [{"op" "remove", "path" "/0/key1"}]))
+       (let [obj1 {"baz" [{"first" "test"},
+                          {"second" "test"},
+                          {"third" "test"}]}
+             obj2 {"baz" [{"first" "test"},
+                          {"second" "second"},
+                          {"third" "level"}]}]
+         (fact "Test vector with different maps"
+               (diff obj1 obj2) => [{"op" "replace" "path" "/baz/1/second" "value" "second"} {"op" "replace" "path" "/baz/2/third" "value" "level"}])))
 
 (facts "Happy path JSON patch"
        (let [obj1 {"foo" "bar"}
