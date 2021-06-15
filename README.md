@@ -75,3 +75,4 @@ Run Unit Tests for ClojureScript (depends on firefox)
 ```shell
 lein doo once
 ```
+**Remark:** First run the tests for ClojureScript, for some reason "lein midje" returns an error on compilation of the javascript files needed for the ClojureScript tests.
