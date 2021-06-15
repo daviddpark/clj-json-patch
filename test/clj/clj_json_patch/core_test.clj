@@ -3,15 +3,6 @@
             [clj-json-patch.core :refer [diff patch]])
   (:use [midje.sweet]))
 
-(deftest my-test
-  (is (= 4 5)))
-
-(deftest patch-test
-       (let [v ["all" "grass" "cows" "eat" "slowly"]
-             p [{"from" "/1", "op" "move", "path" "/3"}]
-             expected ["all" "cows" "eat" "grass" "slowly"]]
-         (is (= (patch v p) expected))))
-
 (facts "applying patch"
        (let [v ["all" "grass" "cows" "eat" "slowly"]
              p [{"from" "/1", "op" "move", "path" "/3"}]
@@ -241,10 +232,10 @@
         (fact "first nested object updated correctly"
               (get (first (get patched "k1")) "s0k1") => "new value")
         (fact "second nested object unchanged"
-              (get (second (get patched "k1")) "s1k1") => "s1v1"))
-      (fact "Patch with escape characters"
-            (patch {"foo" {"bar" 42}}
-                   [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}}))
+              (get (second (get patched "k1")) "s1k1") => "s1v1")
+        (fact "Patch with escape characters"
+              (patch {"foo" {"bar" 42}}
+                     [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}})))
 
 (facts "Nested JSON patch"
        (let [obj1 {"nested" {"foo" "bar"}}

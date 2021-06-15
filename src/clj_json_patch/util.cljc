@@ -302,7 +302,7 @@
                         (str "The test failed. "
                            (.stringify js/JSON (clj->js val))
                            " is not found at " path ". "
-                           (e.message))))))))
+                           e)))))))
 
 
 (defn apply-patch [obj patch]
