@@ -6,7 +6,8 @@
   :main clj-json-patch.core
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/clojurescript "1.10.597"]
-                 [cheshire "5.10.0"]]
+                 [cheshire "5.10.0"]
+                 [doo "0.1.11"]]
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]]
   :profiles {:dev {:dependencies [[midje/midje "1.9.9"]]
@@ -19,28 +20,11 @@
   :hooks [leiningen.cljsbuild]
   :cljsbuild
       {:builds
-       {:minify {:source-paths ["src"]}
-        :compiler
-        {:output-to "resources/public/js/main.js"
-         :output-dir "cljsbuild-output-minify"
-         :optimizations :advanced
-         :pretty-print false}
-        :dev
-        {:source-paths ["src"]
-         :compiler
-         {:output-to "resources/public/js/main.js"
-          :output-dir "resources/public/js/build-output-dev"
-          :optimizations :whitespace}}
-        :test
+       {:test
         {:source-paths ["src" "test/cljs"]
          :compiler
          {:output-to "resources/public/js/runner-cljs.js"
           :main clj-json-patch.runner-cljs
           :optimizations :whitespace
           :pretty-print true}}
-        :test-commands
-        {"unit"
-         ["phantomjs"
-          "resources/test/phantom/runner.js"
-          "resources/test/test.html"]}
         :builds nil}})
