@@ -1,4 +1,4 @@
-(defproject clj-json-patch "0.2.0"
+(defproject org.clojars.ilovehubgit/clj-json-patch "0.2.0"
   :description "Clojure(script) implementation of http://tools.ietf.org/html/rfc6902. (Improved version of clj-json-patch 0.1.7)"
   :url "http://github.com/ILoveHubGit/clj-json-patch"
   :license {:name "Eclipse Public License"
