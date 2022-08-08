@@ -1,17 +1,17 @@
 clj-json-patch
 ==============
 
+
+This library is based on the original created by David Park. I changed it so it is not only useful for Clojure but also for ClojureScript.
+
 Clojure(script) implementation of JSON Patch as specified in
 http://tools.ietf.org/html/rfc6902 with support for
 JSON Pointer https://tools.ietf.org/html/rfc6901
 
-[![Build Status](https://travis-ci.org/daviddpark/clj-json-patch.png)](https://travis-ci.org/daviddpark/clj-json-patch)
-
-
 Usage
 -----
 ```clojure
-[clj-json-patch 0.1.7]
+[clj-json-patch 0.2.0]
 
 ;; From some example namespace:
 (ns example.namespace
