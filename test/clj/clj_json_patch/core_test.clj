@@ -1,6 +1,6 @@
 (ns clj-json-patch.core-test
   (:require [clojure.test :refer :all]
-            [clj-json-patch.core :refer :all])
+            [clj-json-patch.core :refer [diff patch]])
   (:use [midje.sweet]))
 
 (facts "applying patch"
@@ -105,7 +105,20 @@
                             "key2" "val2"}]}
              obj2 {"test" [{"key2" "val2"}]}]
          (fact "nil key vs absent key within a vector"
-               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}])))
+               (diff obj1 obj2) => [{"op" "remove", "path" "/test/0/key1"}]))
+       (let [obj1 [{"key1" nil
+                    "key2" "val2"}]
+             obj2 [{"key2" "val2"}]]
+         (fact "Testing vector compare"
+               (diff obj1 obj2) => [{"op" "remove", "path" "/0/key1"}]))
+       (let [obj1 {"baz" [{"first" "test"},
+                          {"second" "test"},
+                          {"third" "test"}]}
+             obj2 {"baz" [{"first" "test"},
+                          {"second" "second"},
+                          {"third" "level"}]}]
+         (fact "Test vector with different maps"
+               (diff obj1 obj2) => [{"op" "replace" "path" "/baz/1/second" "value" "second"} {"op" "replace" "path" "/baz/2/third" "value" "level"}])))
 
 (facts "Happy path JSON patch"
        (let [obj1 {"foo" "bar"}
@@ -219,10 +232,10 @@
         (fact "first nested object updated correctly"
               (get (first (get patched "k1")) "s0k1") => "new value")
         (fact "second nested object unchanged"
-              (get (second (get patched "k1")) "s1k1") => "s1v1"))
-      (fact "Patch with escape characters"
-            (patch {"foo" {"bar" 42}}
-                   [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}}))
+              (get (second (get patched "k1")) "s1k1") => "s1v1")
+        (fact "Patch with escape characters"
+              (patch {"foo" {"bar" 42}}
+                     [{"op" "add", "path" "/foo/baz~1bar", "value" "ohyeah"}]) => {"foo" {"bar" 42 "baz/bar" "ohyeah"}})))
 
 (facts "Nested JSON patch"
        (let [obj1 {"nested" {"foo" "bar"}}
