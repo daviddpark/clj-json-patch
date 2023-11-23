@@ -4,9 +4,9 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main clj-json-patch.core
-  :dependencies [[org.clojure/clojure "1.10.0"]
-                 [cheshire "5.8.0"]]
+  :dependencies [[org.clojure/clojure "1.11.1"]
+                 [cheshire "5.12.0"]]
   :deploy-repositories [["releases" :clojars]
                         ["snapshots" :clojars]]
-  :profiles {:dev {:dependencies [[midje/midje "1.9.5"]]
-                   :plugins [[lein-midje "3.2.1"]]}})
+  :profiles {:dev {:dependencies [[midje/midje "1.10.9"]]
+                   :plugins      [[lein-midje "3.2.1"]]}})
