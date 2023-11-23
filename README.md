@@ -11,7 +11,7 @@ JSON Pointer https://tools.ietf.org/html/rfc6901
 Usage
 -----
 ```clojure
-[clj-json-patch 0.1.7]
+[clj-json-patch 0.1.8]
 
 ;; From some example namespace:
 (ns example.namespace

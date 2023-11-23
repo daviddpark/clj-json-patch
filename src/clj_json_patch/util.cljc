@@ -369,40 +369,67 @@
     (sanitize prefix patch)))
 
 (defn diff-vecs [obj1 obj2 prefix]
-  (loop [v1 obj1
-         v2 obj2
-         i 0
+  (loop [v1  obj1
+         v2  obj2
+         i   0
          ops []]
-    (cond (and (empty? v1) (empty? v2))
-          ops
-          (and (> (count ops) 0)
-               (= v2
-                  (reduce
-                   #(apply-patch %1 %2) v1
-                   (map (partial sanitize-prefix-in-patch prefix (dec i)) ops))))
-          ops
-          (= (set v1) (set v2))
-          (cond (= i (count v1))
-                ops
-                (= (get v1 i) (get v2 i))
-                (recur v1 v2 (inc i) ops)
-                (not= (get v1 i) (get v2 i))
-                (let [moved-idx (first (filter (complement nil?) (map-indexed #(if (= (get v1 i) %2) %1) v2)))]
-                  (recur v1 v2 (inc i)
-                         (conj ops {"op" "move" "from" (str prefix i) "path" (str prefix moved-idx)}))))
-          (= v1 (rest v2))
-          (conj ops (gen-op ["add" (str prefix i) (first v2)]))
-          (= (rest v1) v2)
-          (conj ops (gen-op ["remove" (str prefix i)]))
-          (not= (first v1) (first v2))
-          (if (and (map? (first v1)) (map? (first v2)))
-            (recur (rest v1) (rest v2) (inc i)
-                   (conj ops (diff* (first v1) (first v2) (str prefix i "/"))))
-            (recur (rest v1) (rest v2) (inc i)
-                   (conj ops (gen-op ["replace" (str prefix i) (first v2)]))))
-          (and (= (first v1) (first v2))
-               (not= (rest v1) (rest v2)))
-          (recur (rest v1) (rest v2) (inc i) ops))))
+    (cond
+      ; Performance optimization: if most diff'ed vectors are likely to contain long shared prefixes or suffixes,
+      ; a straightforward equality comparison is going to be much faster than performing the
+      ; reduction with apply-patch as given below.
+      (= v1 v2)
+      ops
+
+      ; v1 is a prefix of v2 => append "add" to ops and recur
+      (or (empty? v1)
+          (= v1 (rest v2)))
+      (recur
+        v1
+        (rest v2)
+        (inc i)
+        (conj ops (gen-op ["add" (str prefix i) (first v2)])))
+
+      ; v2 is a prefix of v1 => append "remove" to ops and recur
+      (or (empty? v2)
+          (= v2 (rest v1)))
+      (recur
+        (rest v1)
+        v2
+        ; Note: intentionally keeping i same between iterations when removing element.
+        i
+        (conj ops (gen-op ["remove" (str prefix i)])))
+
+      ; v2 equals v1+patches => return ops
+      (and (> (count ops) 0)
+           (= v2
+              (reduce
+                #(apply-patch %1 %2) v1
+                (map (partial sanitize-prefix-in-patch prefix (dec i)) ops))))
+      ops
+
+      ; v1 and v2 contain the same items => need to possibly move objects
+      (= (set v1) (set v2))
+      (cond (= i (count v1))
+            ops
+            (= (get v1 i) (get v2 i))
+            (recur v1 v2 (inc i) ops)
+            (not= (get v1 i) (get v2 i))
+            (let [moved-idx (first (filter (complement nil?) (map-indexed #(if (= (get v1 i) %2) %1) v2)))]
+              (recur v1 v2 (inc i)
+                     (conj ops {"op" "move" "from" (str prefix i) "path" (str prefix moved-idx)}))))
+
+      ; Different first elements
+      (not= (first v1) (first v2))
+      (if (and (map? (first v1)) (map? (first v2)))
+        (recur (rest v1) (rest v2) (inc i)
+               (conj ops (diff* (first v1) (first v2) (str prefix i "/"))))
+        (recur (rest v1) (rest v2) (inc i)
+               (conj ops (gen-op ["replace" (str prefix i) (first v2)]))))
+
+      ; Same first elements, different suffixes
+      (and (= (first v1) (first v2))
+           (not= (rest v1) (rest v2)))
+      (recur (rest v1) (rest v2) (inc i) ops))))
 
 (defn get-value-path
   "Traverses obj, looking for a value that matches val, returns path to value."

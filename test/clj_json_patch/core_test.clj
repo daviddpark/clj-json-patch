@@ -25,6 +25,12 @@
              patches [{"op" "add" "path" "/foo/0" "value" "qux"}]]
          (fact "Adding an Array Element"
                (diff obj1 obj2) => patches))
+       (let [obj1 {"foo" []}
+             obj2 {"foo" ["bar" "baz"]}
+             patches [{"op" "add" "path" "/foo/0" "value" "bar"}
+                      {"op" "add" "path" "/foo/1" "value" "baz"}]]
+         (fact "Adding two Array Elements"
+               (diff obj1 obj2) => patches))
        (let [obj1 {"foo" ["bar" "baz"]}
              obj2 {"foo" ["bar" "qux" "baz"]}
              patches [{"op" "add" "path" "/foo/1" "value" "qux"}]]
